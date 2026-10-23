@@ -1,0 +1,26 @@
+{
+  "name": "techelle-technical-documentation",
+  "version": "1.0.0",
+  "description": "Technical documentation for the techelle project",
+  "main": "index.js",
+  "scripts": {
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/akirachix/techelle-technical-documentation.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/akirachix/techelle-technical-documentation/issues"
+  },
+  "homepage": "https://github.com/akirachix/techelle-technical-documentation#readme",
+  "devDependencies": {
+    "vitepress": "^1.6.4"
+  }
+}
