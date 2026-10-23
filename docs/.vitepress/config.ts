@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress'
 
 export default defineConfig({
+  base: '/techelle-technical-documentation/',
   title: 'Afyra Technical Documentation',
   description: 'Technical documentation for the Afyra crop residue sourcing platform',
   cleanUrls: true,
