@@ -6,3 +6,6 @@ docs/.vitepress/dist
 .idea/
 .env
 *.log
+.env.*
+!.env.example
+*.tsbuildinfo

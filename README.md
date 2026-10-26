@@ -1,156 +1,78 @@
-# Téchelle Technical Documentation
+# Afyra Technical Documentation
 
-Technical documentation for **Afyra**, the TechElle platform that connects farmers who have crop residues to sell with animal feed manufacturers. It covers the mobile app used by farmers and drivers, the web dashboard used by manufacturers and admins, the API that connects them, and the pricing, matching, pooling and AI grading rules.
+VitePress documentation for Afyra, covering the platform architecture, features, Flutter mobile application, Next.js web application, FastAPI backend, AI model, security, QA, integrations, algorithms, and developer workflows.
 
-The site is built with [VitePress](https://vitepress.dev).
+## Requirements
 
-## Contents
-
-| Page | What it covers |
-| ---- | -------------- |
-| Overview | What Afyra is, who it is for, and its scope |
-| Architecture | How the apps, API, database and outside services fit together |
-| Backend / API | The FastAPI service, data model, endpoints and business rules |
-| Pricing, Matching & Pooling | Price ranges, matching requests to listings and pooling nearby farmers |
-| Mobile App | The Flutter app for farmers, host farmers and drivers, including offline use |
-| Web Dashboard | The PWA for feed manufacturers and admins |
-| Security | Sign-in, roles, record-level access, data protection and the activity log |
-| AI Grading | How residue photos are graded |
-| Integrations | SMS Leopard, Tamia Feeds reference prices and Google Maps |
-| Deployment | Hosting, environments, scheduled jobs and releases |
-| Design & Guidelines | Colours, type, components, accessibility and writing rules |
-| Developer Guide | Setting up and running Afyra locally |
-| Documentation Guide | How these docs are organised and written |
-
-## Getting started
-
-### Prerequisites
-
-- Node.js 18 or newer (`node -v` to check)
+- Node.js 20 or newer
 - npm
 
-### Install and run
+## Run locally
 
 ```bash
-git clone https://github.com/akirachix/techelle-technical-documentation.git
-cd techelle-technical-documentation
-npm install
+npm ci
 npm run docs:dev
 ```
 
-Open http://localhost:5173. The page reloads each time you save a file.
+Open the URL printed in the terminal. This repository uses the VitePress base path `/techelle-technical-documentation/` for GitHub Pages.
 
-### Commands
+## Validate and build
 
-| Command | What it does |
-| ------- | ------------ |
-| `npm run docs:dev` | Starts the local preview |
-| `npm run docs:build` | Builds the static site into `docs/.vitepress/dist` |
-| `npm run docs:preview` | Serves the built site for a final check |
-
-## Project structure
-
-```
-techelle-technical-documentation/
-├── package.json
-└── docs/
-    ├── .vitepress/
-    │   ├── config.ts          # Site title, top menu, sidebar, search, footer
-    │   └── theme/
-    │       ├── index.ts       # Loads the default theme, Afyra styles and the page status label
-    │       ├── PageStatus.vue # Shows each page's status (Planned, Draft, In review, Complete)
-    │       └── style.css      # Afyra colours, fonts and home page layout
-    ├── public/                # Afyra logo (green and cream), tab icons and illustrations (served from /)
-    ├── index.md               # Home page
-    └── *.md                   # One file per page
+```bash
+npm run docs:build
+npm run docs:preview
 ```
 
-Each Markdown file in `docs/` becomes a page: `docs/security.md` is served at `/security`.
+The generated site is written to `docs/.vitepress/dist/`. Do not edit generated build files.
 
-## Writing documentation
+## Documentation structure
 
-### Edit a page
+```text
+docs/
+├── index.md
+├── features/index.md
+├── architecture/{sad,ssad,data-models}.md
+├── frontend-mobile/{index,ui-designs}.md
+├── frontend-web/{index,ui-designs}.md
+├── backend/index.md
+├── ai/index.md
+├── design-and-brand-guidelines/index.md
+├── security/index.md
+├── qa/index.md
+├── integrations/index.md
+├── code-standards/index.md
+├── platform/{index,pooling,matching,pricing}.md
+├── developer-guide/index.md
+├── public/images/
+└── .vitepress/{config.ts,theme/}
+```
 
-1. Open the page in `docs/`, for example `docs/overview.md`.
-2. Write under the `# Title`, using `##` for sections and `###` for sub-sections.
-3. Check it in the browser with `npm run docs:dev`.
-4. Change `status` in the page header as you go (see below).
+## Editing pages
 
-### Add a page
+- Edit Markdown in `docs/`.
+- Edit sidebar, logo, site base path, and search in `docs/.vitepress/config.ts`.
+- Edit site styling in `docs/.vitepress/theme/style.css`.
+- Put images under `docs/public/images/` and reference them as `/images/<name>`.
+- Mobile UI screenshots belong in `docs/public/images/mobile/`.
+- Web UI screenshots belong in `docs/public/images/web/`.
+- The cream logo is selected automatically in dark mode by the VitePress theme configuration.
 
-1. Create `docs/your-page.md` with this header:
+## UI Screenshots
 
-   ```md
-   ---
-   title: Your Page
-   description: One sentence describing the page.
-   status: planned
-   ---
+Mobile screenshots are stored in `docs/public/images/mobile/`.
 
-   # Your Page
-   ```
+Web screenshots are stored in `docs/public/images/web/`.
 
-2. Add it to the sidebar in `docs/.vitepress/config.ts`:
+To add a screenshot:
 
-   ```ts
-   { text: 'Your Page', link: '/your-page' },
-   ```
+1. Add the image to the appropriate folder.
+2. Reference it in the corresponding `ui-designs.md` page.
+3. Run `npm run docs:build` to verify the documentation.
 
-### Page status
+## Deployment
 
-Set `status` in each page's header. It shows as a label at the top of the page, so the team can see progress:
+The VitePress base path is configured for `https://<account>.github.io/techelle-technical-documentation/`. If deploying at a different URL, update `base` in `docs/.vitepress/config.ts`.
 
-| Status | Label | Meaning |
-| ------ | ----- | ------- |
-| `planned` | Planned | Title only, not started |
-| `draft` | Draft | Being written |
-| `review` | In review | Ready for a teammate to check |
-| `complete` | Complete | Reviewed and up to date |
+## API reference
 
-### Writing rules
-
-- Describe what the code does today, not what is planned.
-- Number sections (`## 1.`, `### 1.1`) so they are easy to refer to.
-- Use a table when comparing more than three things.
-- Name source files in backticks, such as `afyra/services/pooling.py`, so readers can find the code.
-- List environment variable names only. Never commit secrets or real values.
-- Use the product's words: farmer, host farmer, manufacturer, driver, listing, request, collection point, pool.
-- Put images in `docs/public/` and reference them as `/image-name.png`.
-- Write each fact in one place and link to it from other pages.
-
-## Design
-
-The look follows the Afyra product design in Figma (*Product design_Techelle*):
-
-| Token | Colour | Used for |
-| ----- | ------ | -------- |
-| Forest | `#0d4f3b` | Headings, buttons, links, the dark band |
-| Gold | `#eac04c` | Highlights, active markers, focus outline |
-| Cream | `#fffbeb` | Page background |
-| Mint | `#ddf6dd` | Icon tiles, footer |
-
-The site has a light and a dark mode (the switch is in the top bar; it starts with the reader's system setting). Dark mode uses deep green with cream text and gold links.
-
-| File in `docs/public/` | Used for |
-| ---------------------- | -------- |
-| `afyra-logo.png` | The Afyra wordmark in the top bar, light mode |
-| `afyra-logo-cream.png` | The cream wordmark, dark mode |
-| `afyra-favicon.png`, `afyra-icon.png` | Browser tab and phone home-screen icon (the leafy "a") |
-| `afyra-hero.svg` | Home page illustration |
-
-The fonts are Inter (text) and JetBrains Mono (code), loaded from Google Fonts. All colours live as variables at the top of `docs/.vitepress/theme/style.css` (light) and in its `.dark` block (dark), so change them there, not in individual rules.
-
-## Contributing
-
-1. Create a branch: `git checkout -b docs/<page-name>`
-2. Write or update the page.
-3. Run `npm run docs:build` to make sure the site builds. It fails on broken links.
-4. Commit, push and open a pull request for review.
-
-## Related repositories
-
-| Repository | Description |
-| ---------- | ----------- |
-| `techelle-backend` | FastAPI service, database, pricing, matching and grading |
-| Web dashboard | PWA for manufacturers and admins |
-| Mobile app | Flutter app for farmers and drivers |
+[Hosted Afyra Swagger API](https://afyra-def6d466c54b.herokuapp.com/docs)
