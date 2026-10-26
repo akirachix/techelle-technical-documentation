@@ -7,8 +7,6 @@ description: Afyra's matching, pooling and pricing algorithms.
 
 ---
 
-# Platform
-
 Afyra uses business rules and allocation logic to connect available crop residues with manufacturer demand.
 
 This section documents the three core algorithms responsible for supply selection, aggregation and price estimation.

@@ -1,18 +1,61 @@
 ---
-title: Design & Brand Guidelines
+title: Designs and Brand Guidelines
+description: Afyra's official design system and brand identity.
 ---
 
-# Design & Brand Guidelines
+<script setup>
+import { withBase } from 'vitepress'
+</script>
 
-## Primary Logo
+# Designs and Brand Guidelines
 
-[![Afyra primary logo](/images/afyra-logo.png)](/images/afyra-logo.png)
+Afyra's visual identity brings together our logo, colors, typography, iconography, and interface components.
 
-## Cream Logo — Dark Mode
+## Logo Usage
 
-[![Afyra cream logo](/images/afyra-logo-cream.png)](/images/afyra-logo-cream.png)
+<div class="brand-section usage-section">
+  <img :src="withBase('/afyra-logo-backgrounds.png')" alt="Logo usage examples" />
+</div>
 
-## Application UI Designs
+## Color Palette
 
-- [Mobile UI Designs - Farmer & Driver](/frontend-mobile/ui-designs)
-- [Web UI Designs - Manufacturer & Administrator](/frontend-web/ui-designs)
+<div class="brand-section palette-section">
+  <img :src="withBase('/afyra-color-palette.png')" alt="Afyra color palette" />
+</div>
+
+## Typography
+
+<div class="brand-section typography-section">
+  <img :src="withBase('/afyra-typography.png')" alt="Afyra typography" />
+</div>
+
+## Iconography
+
+<div class="brand-section icons-section">
+  <img :src="withBase('/afyra-iconography.png')" alt="Afyra iconography" />
+</div>
+
+## Buttons
+
+<div class="brand-section buttons-section">
+  <img :src="withBase('/afyra-buttons.png')" alt="Afyra button styles" />
+</div>
+
+<style>
+.brand-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 16px 0 32px;
+  padding: 16px;
+  background: #ffffff;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.brand-section img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+</style>
