@@ -5,97 +5,142 @@ description: Rule-based crop-residue price estimation using Tamia Feeds referenc
 
 # Pricing Algorithm
 
-Afyra's pricing approach estimates crop-residue value using **Tamia Feeds reference quotations** and rule-based adjustments for quality and quantity.
+Afyra provides an **estimated price range** for a crop-residue listing using a stored reference price, the residue's quality grade, and its quantity in kilograms. The estimate helps farmers and manufacturers compare potential sourcing costs before an order is agreed. It is **not a guaranteed purchase price**.
 
-The goal is to provide an understandable estimate based on the characteristics of the listed supply.
+The calculation is implemented in `afyra/services/pricing.py`, with configuration in `afyra/core/rules.py` and price selection in `afyra/services/catalog.py`.
 
-## Pricing Approach
+## 1. Reference price
 
-The planned pricing process uses reference quotations rather than treating Tamia Feeds as a live pricing API.
+Each calculation begins with a **base rate in Kenyan shillings per kilogram (KES/kg)** for a residue type and county.
 
-The previous HDX HAPI-based approach is being replaced by this quotation-based method.
+The backend retrieves the latest stored price whose effective date is not in the future. Its current selection logic is:
 
-## Pricing Inputs
+1. Look for a stored price for the requested residue type and county.
+2. If none exists, look for the same residue type in **Meru**, the configured supplier reference county.
+3. If neither exists, the estimate endpoint returns `PRICE_NOT_AVAILABLE` instead of inventing a price.
 
-| Input           | Purpose                                                |
-| --------------- | ------------------------------------------------------ |
-| Residue type    | Select the appropriate reference quotation             |
-| Reference price | Provide the baseline pricing value                     |
-| Quality         | Apply the Good or Bad quality adjustment               |
-| Quantity        | Determine the total quantity and applicable adjustment |
+For counties other than Meru, a county-specific stored price is labeled as an **admin price**. When the calculation falls back to Meru, it uses the configured **Tamia Feeds reference price (Meru)** label.
 
-## Quality Categories
+### Tamia Feeds reference collection
 
-Afyra uses exactly two business-facing quality categories.
+The supplier integration reads the configured [Tamia Feeds reference page](https://tamiafeeds.co.ke/madam-karimi-from-tigania-meru-county/) and looks specifically for **maize stalk** quotations. For each recognized quotation, it:
 
-| Category | Meaning                                                               |
-| -------- | --------------------------------------------------------------------- |
-| Good     | Material classified as meeting the applicable visual quality criteria |
-| Bad      | Material classified as not meeting those criteria                     |
+- Identifies one price amount in KES and one weight in kilograms or tonnes.
+- Converts tonnes to kilograms where necessary.
+- Divides the quoted amount by the weight to obtain KES/kg.
+- Averages recognized maize-stalk rates if more than one quotation is found, rounding to two decimal places.
+- Saves the result for **Meru** using the quotation's publication date, provided the matching residue type exists and that county/type/date record has not already been saved.
 
-The ML integration may use `POOR` internally for the lower-quality class.
+The collection skips quotations without a publication date. Collection can be disabled by configuration and runs only when triggered by the admin collection endpoint or the collection script. The script checks whether a refresh is due according to the configured interval.
 
-## Pricing Workflow
+**Current scope:** The supplier parser handles maize stalk quotations; it does not automatically extract reference prices for every crop-residue category.
 
-```mermaid
-flowchart TD
-    A[Farmer Submits Listing] --> B[Identify Residue Type and Quantity]
-    B --> C[Obtain Applicable Tamia Feeds Reference Quotation]
-    C --> D[Receive Quality Assessment]
-    D --> E[Apply Pricing Rules]
-    E --> F[Calculate Estimated Value]
-    F --> G[Return Price Estimate]
+## 2. Quality adjustment
+
+The pricing engine has two quality levels:
+
+| User-facing quality | Backend grade |      Price adjustment |
+| ------------------- | ------------- | --------------------: |
+| Good                | `GOOD`        |   0 percentage points |
+| Bad                 | `POOR`        | −30 percentage points |
+
+A good-quality listing keeps the base rate before the quantity adjustment. A bad-quality listing receives a 30-percentage-point reduction before the quantity adjustment is combined.
+
+> **AI and pricing:** The image-classification model supports preliminary screening. The pricing endpoint accepts a quality grade as an input; the calculation itself does not inspect an image or automatically verify the grade.
+
+## 3. Quantity adjustment
+
+The backend applies the following tiers based on the quantity being estimated:
+
+| Quantity                     |            Adjustment |
+| ---------------------------- | --------------------: |
+| 5,000 kg or more             | +10 percentage points |
+| 2,000–4,999.99 kg            |  +5 percentage points |
+| 500–1,999.99 kg              |   0 percentage points |
+| More than 0 and below 500 kg |  −5 percentage points |
+
+These are the values defined in `QUANTITY_TIERS`. The quantity supplied to `/prices/estimate` must be greater than zero.
+
+## 4. Calculation formula
+
+The backend **adds** the quality and quantity adjustments. It does not apply them one after the other as separate percentage multipliers.
+
+```text
+Total adjustment (%) = Quality points + Quantity points
+Capped adjustment (%) = min(15, max(-40, Total adjustment))
+Adjusted rate (KES/kg) = Base rate × (1 + Capped adjustment / 100)
 ```
 
-## Calculation Structure
+The configured adjustment limits are **−40%** and **+15%**. The adjusted rate is used to produce a range of **10% below and 10% above** the adjusted value:
 
-At a conceptual level:
+```text
+Minimum estimate per kg = round(Adjusted rate × 0.90, 2)
+Maximum estimate per kg = round(Adjusted rate × 1.10, 2)
+Minimum total (KES) = round(Minimum estimate per kg × Weight in kg, 2)
+Maximum total (KES) = round(Maximum estimate per kg × Weight in kg, 2)
+```
 
-**Estimated Value = Reference Unit Price × Quantity × Applicable Adjustment Factors**
+Rounding uses decimal arithmetic with `ROUND_HALF_UP` to two decimal places. The endpoint returns the estimated range, not a single binding quotation.
 
-The adjustment factors represent the quality and quantity rules.
+## 5. Worked examples
 
-This equation illustrates the pricing structure. It does not establish the exact implemented formula.
+The examples below use a **hypothetical base rate of KES 5.00/kg** to demonstrate the implemented formula. This is an illustration, not a live Tamia Feeds quotation.
 
-## Reference Quotations
+### Example A: Good quality, 2,500 kg
 
-Tamia Feeds quotations serve as the reference source for baseline prices.
+| Step                | Calculation            |        Result |
+| ------------------- | ---------------------- | ------------: |
+| Base rate           | Example reference rate |   KES 5.00/kg |
+| Quality adjustment  | `GOOD`                 |            0% |
+| Quantity adjustment | 2,500 kg               |           +5% |
+| Combined adjustment | 0% + 5%                |           +5% |
+| Adjusted rate       | 5.00 × 1.05            |   KES 5.25/kg |
+| Minimum rate        | 5.25 × 0.90            |   KES 4.73/kg |
+| Maximum rate        | 5.25 × 1.10            |   KES 5.78/kg |
+| Minimum total       | 4.73 × 2,500           | KES 11,825.00 |
+| Maximum total       | 5.78 × 2,500           | KES 14,450.00 |
 
-The pricing documentation should record:
+**Estimated price range: KES 11,825.00–14,450.00.**
 
-- Residue type.
-- Quoted unit price.
-- Unit of measurement.
-- Quotation date.
-- Source reference.
-- Applicable validity period, if provided.
+### Example B: Bad quality, 2,500 kg
 
-Actual quotation values should be inserted only from approved Tamia Feeds material.
+| Step                | Calculation            |        Result |
+| ------------------- | ---------------------- | ------------: |
+| Base rate           | Example reference rate |   KES 5.00/kg |
+| Quality adjustment  | `POOR`                 |          −30% |
+| Quantity adjustment | 2,500 kg               |           +5% |
+| Combined adjustment | −30% + 5%              |          −25% |
+| Adjusted rate       | 5.00 × 0.75            |   KES 3.75/kg |
+| Minimum rate        | 3.75 × 0.90            |   KES 3.38/kg |
+| Maximum rate        | 3.75 × 1.10            |   KES 4.13/kg |
+| Minimum total       | 3.38 × 2,500           |  KES 8,450.00 |
+| Maximum total       | 4.13 × 2,500           | KES 10,325.00 |
 
-## Pricing Rules
+**Estimated price range: KES 8,450.00–10,325.00.**
 
-The exact rules must be confirmed from the approved pricing specification or backend implementation.
+The two examples show how quality changes the estimate while the residue type, reference rate, and quantity remain the same.
 
-| Rule                             | Status                           |
-| -------------------------------- | -------------------------------- |
-| Residue-specific reference price | Planned quotation-based approach |
-| Good/Bad quality adjustment      | Required by pricing design       |
-| Quantity adjustment              | Required by pricing design       |
-| Exact adjustment percentages     | Not specified here               |
-| Quotation update frequency       | Not specified here               |
+## 6. Price age and availability
 
-## Relationship to AI
+`GET /prices/quote` reports whether a reference price is **stale**. A price is marked stale when its effective date is **more than 90 days old**.
 
-The ML model evaluates residue photographs and provides quality information.
+The estimate endpoint uses the latest available stored price and does **not** reject it solely because it is older than 90 days. If there is no applicable reference price, it returns `PRICE_NOT_AVAILABLE`.
 
-The pricing algorithm uses the resulting quality category as one of its inputs.
+## 7. Related API endpoints
 
-**The pricing algorithm is rule-based; it is not a machine learning price-prediction model.**
+| Endpoint                            | Access             | Purpose                                                                      |
+| ----------------------------------- | ------------------ | ---------------------------------------------------------------------------- |
+| `GET /prices/quote`                 | Authenticated user | Return the base reference rate, effective date, source label, and stale flag |
+| `GET /prices/estimate`              | Authenticated user | Return the quality- and quantity-adjusted price range                        |
+| `GET /admin/market-prices`          | Admin              | List stored reference prices                                                 |
+| `POST /admin/market-prices`         | Admin              | Add a reference price                                                        |
+| `POST /admin/market-prices/collect` | Admin              | Trigger configured Tamia Feeds collection                                    |
 
-## Related Documentation
+The estimate endpoint accepts `residue_type_id`, `county`, `weight_kg`, and an optional `grade` (default `GOOD`). The response includes the residue category, user-facing quality, quantity, combined adjustment points, minimum and maximum rates, minimum and maximum totals, source label, and `is_estimate: true`.
 
-- [AI](/ai/)
-- [Integrations](/integrations/)
-- [Backend](/backend/)
-- [Matching Algorithm](/platform/matching)
-- [Pooling Algorithm](/platform/pooling)
+For the complete request and response schemas, see the [API Documentation](/backend/api-documentation).
+
+## 8. Why Afyra uses an estimate
+
+The algorithm offers an early pricing guide rather than a final commercial agreement. It helps manufacturers compare residue listings and plan sourcing budgets, while making the effects of quality and quantity visible. Actual ordering decisions and final prices remain subject to the parties' agreement and any checks needed beyond an image-based pre-screening result.
+

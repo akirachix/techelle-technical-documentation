@@ -1,261 +1,213 @@
 ---
-title: AI
-description: Afyra's crop-residue image classification model, training, evaluation and backend integration.
+title: AI and Machine Learning
+description: Afyra maize stalk quality classification, training process, evaluation and integration.
 ---
 
-# Artificial Intelligence
+# AI and Machine Learning
 
-Afyra integrates computer vision into its crop-residue listing workflow to help assess the quality of agricultural residues submitted by farmers.
+## 1. Overview
 
-The AI component uses **YOLO26n-cls**, an image-classification model, to analyze photographs and produce quality predictions that inform backend listing decisions.
+Afyra's image-classification work focuses on assessing the visible condition of **dry maize stalks**. The classifier accepts a photograph and predicts one of two labels: **good** or **bad**. This is a visual quality check, not a laboratory test or a guarantee of feed safety.
 
-## AI Overview
+The implementation documented here comes from the `stalk_classifier_v4.ipynb` training notebook. The model is a fine-tuned **YOLO26n-cls** image classifier, built with Ultralytics. It starts from pretrained weights rather than learning image features from scratch.
 
-The AI component focuses on one primary task: **crop-residue quality classification**.
+| Class  | Meaning in the training notebook                               |
+| ------ | -------------------------------------------------------------- |
+| `good` | Dry, healthy-looking brown maize stalk without visible disease |
+| `bad`  | Stalk with visible rot, lesions, breakage or lodging           |
 
-When a farmer submits a crop-residue listing, the photographs are processed by the backend and evaluated by the classification model.
+The model uses **two classes only**. These classification labels should not be confused with a three-level grading system or a separate market-price calculation.
 
-The resulting predictions are used to determine whether the submitted residue satisfies the application's quality requirements.
+## 2. Model Architecture
 
-| Component      | Description                            |
-| -------------- | -------------------------------------- |
-| Model          | YOLO26n-cls                            |
-| AI technique   | Computer vision                        |
-| Task           | Image classification                   |
-| Input          | Crop-residue photographs               |
-| Output         | Predicted quality class and confidence |
-| Integration    | FastAPI backend                        |
-| Model artifact | `ml/weights/residue_cls.pt`            |
+YOLO26n-cls is a lightweight image-classification model. Unlike an object detector, which draws boxes around objects, the classifier produces a label for the image as a whole and a confidence score.
 
-## Problem Being Addressed
+The saved training output identifies the YOLO26n-cls model with **47 layers**, approximately **1.53 million parameters**, and **3.2 GFLOPs** in its fused summary.
 
-Crop residues can vary in condition, and photographs may provide useful visual evidence of that condition.
+```mermaid
+flowchart TD
+    A[Maize stalk photograph] --> B[Correct orientation and crop image]
+    B --> C[Resize to 320 × 320]
+    C --> D[Convert to grayscale, then RGB]
+    D --> E[YOLO26n-cls classifier]
+    E --> F[Good or bad label]
+    E --> G[Prediction confidence]
+```
 
-Without an automated assessment process, checking every submitted listing would require additional manual effort.
+The 320 × 320 size describes the notebook's dataset and inference preprocessing. During model training, Ultralytics uses an `imgsz` setting of **224**.
 
-Afyra's model is intended to support a more consistent initial screening process.
+## 3. Image Collection and Labelling
 
-However, visual classification alone cannot establish the full nutritional value, moisture content or safety of agricultural feed material.
+The notebook builds its dataset using two sources:
 
----
+1. **Web photographs** gathered through DuckDuckGo image searches in October 2026. Searches cover dry stalks, stalk rot, fallen stalks and related conditions.
+2. **Kaggle Maize Stalk Diseases Dataset**, using images from the `giberella` folder for the bad class. The notebook limits these images to at most one-third of the bad class to reduce dependence on one source.
 
-## Model Selection
+The initial download output reports **123 successful good-image downloads** and **96 successful bad-image downloads**, while the raw folders subsequently contained **115 good** and **74 bad** images. These are collection-stage counts, not the final training dataset.
 
-### YOLO26n-cls
+Labels are based on visible appearance. The notebook describes the labels as assigned by the project author; they are not presented as laboratory-confirmed diagnoses.
 
-Afyra uses the classification variant of YOLO26n.
+### Image cleaning
 
-Unlike an object-detection model, which identifies objects and their positions within an image, the classification model predicts a category for the input image.
+The preparation pipeline includes:
 
-The model was selected for its relatively small size and suitability for integration into the image-processing workflow.
+- A first-pass image screen using **CLIP** (`openai/clip-vit-base-patch32`) to separate likely irrelevant search results into `rejected/` folders.
+- Manual review of kept and rejected images, with helpers to delete or restore files.
+- Removal of exact and near-duplicate photographs using image hashes.
+- Cropping the bottom 10% of images to reduce stock-photo watermark bars.
+- Standardizing images to **320 × 320 pixels**.
+- Converting images to **grayscale**, reducing the chance that the model simply learns color differences.
 
-### Model Characteristics
+The CLIP pass moved **26 of 115 good images** and **14 of 74 bad images** into rejected folders. The Kaggle import output shows **100 giberella images** before the final dataset-building restrictions were applied.
 
-| Property                | Reported Value                                 |
-| ----------------------- | ---------------------------------------------- |
-| Architecture            | YOLO26n-cls                                    |
-| Parameters              | Approximately 1.5 million                      |
-| Model size              | Approximately 3.2 MB                           |
-| Input image size        | 224 × 224                                      |
-| Reported inference time | Approximately 4.5 ms per image on an NVIDIA T4 |
+## 4. Dataset and Splitting
 
-The inference time is a reported benchmark and should not be interpreted as the complete API response time or expected CPU performance.
+The final dataset contains **165 images**: **87 good** and **78 bad**.
 
----
+| Dataset split |   Good |    Bad |   Total |
+| ------------- | -----: | -----: | ------: |
+| Training      |     52 |     51 |     103 |
+| Validation    |     13 |     13 |      26 |
+| Test          |     22 |     14 |      36 |
+| **Total**     | **87** | **78** | **165** |
 
-## Dataset
+Training images teach the model, validation images help assess training, and test images are reserved for evaluation on unseen examples. The notebook keeps Kaggle images out of the test set, so the test split uses web photographs.
 
-The model development report describes a dataset of crop-residue photographs, particularly maize stalk imagery.
+A separate set of **10 field photographs** is held outside the train, validation and test splits for an additional check.
 
-Images were sourced from:
+## 5. Model Training
 
-- DuckDuckGo image searches.
-- Kaggle datasets.
+The notebook trains a pretrained Ultralytics classification checkpoint on the prepared dataset.
 
-### Image Perspectives
+| Setting                           | Value used                                 |
+| --------------------------------- | ------------------------------------------ |
+| Model                             | `yolo26n-cls.pt`                           |
+| Training epochs                   | 30                                         |
+| Training image size               | 224                                        |
+| Batch size                        | 32                                         |
+| Random seed                       | 0                                          |
+| Dataset directory                 | `dataset`                                  |
+| Project/name                      | `runs` / `stalk`                           |
+| Training hardware shown in output | NVIDIA Tesla T4 GPU                        |
+| Best checkpoint                   | `runs/classify/runs/stalk/weights/best.pt` |
 
-The dataset design considered three photographic views.
+The code includes a fallback to `yolo11n-cls.pt` if YOLO26n-cls cannot be loaded. The saved run output specifically identifies **YOLO26n-cls** as the model used.
 
-| View  | Purpose                                       |
-| ----- | --------------------------------------------- |
-| Macro | General appearance of the residue             |
-| Core  | Internal condition of the material            |
-| Base  | Condition near the lower portion of the stalk |
+```python
+from ultralytics import YOLO
 
-These views provide different visual information about the submitted material.
+model = YOLO("yolo26n-cls.pt")
+model.train(
+    data="dataset",
+    epochs=30,
+    imgsz=224,
+    batch=32,
+    seed=0,
+    project="runs",
+    name="stalk",
+    exist_ok=True,
+)
+```
 
-### Data Preparation
+The notebook reports a validation top-1 accuracy of approximately **0.962** after training.
 
-Model development involves preparing photographs for classification, organizing them by their assigned labels and separating training and evaluation data.
+## 6. Model Evaluation
 
-The reliability of the resulting model depends on image quality, labeling accuracy and how well the dataset represents real farm conditions.
+Evaluation uses accuracy, precision, recall, F1-score and confusion matrices. **Recall for the bad class matters especially:** a bad stalk incorrectly predicted as good could be accepted when it should receive further review.
 
----
+### Validation and test results
 
-## Quality Classification
+| Metric            | Validation (26 images) | Test (36 images) |
+| ----------------- | ---------------------: | ---------------: |
+| Accuracy          |                    96% |              92% |
+| Good-class recall |                   100% |             100% |
+| Bad-class recall  |                    92% |              79% |
+| Good-class F1     |                   0.96 |             0.94 |
+| Bad-class F1      |                   0.96 |             0.88 |
 
-The classification workflow uses two quality outcomes.
+The test set contains **33 correct predictions out of 36**. All 22 good images were classified correctly; three of 14 bad images were incorrectly classified as good.
 
-| Quality | Interpretation                                                              |
-| ------- | --------------------------------------------------------------------------- |
-| Good    | The photograph is classified as meeting the model's visual quality criteria |
-| Bad     | The photograph is classified as not meeting those criteria                  |
+**Test confusion matrix** (rows = actual label; columns = predicted label):
 
-**Implementation note:** The backend model integration uses `GOOD` and `POOR` terminology internally, with `POOR` mapped to the lower-quality outcome. The documentation uses **Good** and **Bad** as Afyra's two business-facing quality categories.
+| Actual / predicted | Bad | Good |
+| ------------------ | --: | ---: |
+| Bad                |  11 |    3 |
+| Good               |   0 |   22 |
 
-The model's prediction is a visual assessment, not a laboratory-quality certification.
+### Field-photo holdout evaluation
 
----
+The notebook also evaluates **10 independently held-out field photos**: five good and five bad.
 
-## Model Evaluation
+| Metric            | Field-photo result |
+| ----------------- | -----------------: |
+| Overall accuracy  |         70% (7/10) |
+| Good-class recall |         100% (5/5) |
+| Bad-class recall  |          40% (2/5) |
 
-The AI model report provides the following evaluation results.
+**Field-photo confusion matrix:**
 
-| Evaluation              | Reported Accuracy | Dataset Size |
-| ----------------------- | ----------------: | -----------: |
-| Validation              |               96% |    26 images |
-| Held-out web-image test |               92% |    36 images |
+| Actual / predicted | Bad | Good |
+| ------------------ | --: | ---: |
+| Bad                |   2 |    3 |
+| Good               |   0 |    5 |
 
-These results provide initial evidence of classification performance.
+The field test is substantially harder for the classifier than the web-image test. Three bad stalks were labelled good, some with high confidence. This is important when deciding whether the prediction can be trusted without a human review.
 
-However, the evaluation datasets are small and may not represent the diversity of real-world agricultural conditions.
+### Background-bias check
 
-The reported results should therefore not be presented as guaranteed accuracy in production.
+The notebook tests whether image backgrounds provide clues about the label. A separate logistic regression classifier is trained using only the left and right edges of the training images.
 
-### Evaluation Considerations
+- Edge-only accuracy: **0.680**
+- Majority-class baseline: **0.505**
 
-Further evaluation should consider:
+Because the edge-only score is higher than the baseline, the images contain some background or scene information related to the class. This is a reason to test with more varied real-world photographs.
 
-- Different crop-residue varieties.
-- Lighting conditions.
-- Camera quality.
-- Background variation.
-- Partially obscured materials.
-- Images captured in actual farm environments.
-- Incorrect classifications and their operational consequences.
+## 7. Inference and Model Artifacts
 
----
+The notebook saves two deployment-oriented files:
 
-## AI Inference Workflow
+| File               | Purpose                                         |
+| ------------------ | ----------------------------------------------- |
+| `stalk_model.pt`   | Copy of the best trained classification weights |
+| `predict_stalk.py` | Preprocessing and prediction helper             |
 
-The AI model is integrated into the backend listing process.
+The helper accepts an image path or PIL image, corrects orientation, crops/resizes to 320 × 320, converts to grayscale and returns a label with confidence.
 
-### Processing Sequence
+```python
+{
+    "label": "bad",
+    "confidence": 1.0
+}
+```
 
-1. A farmer submits crop-residue information and photographs.
-2. The backend validates the submitted images.
-3. Images are prepared for model inference.
-4. The YOLO26n-cls model evaluates the photographs.
-5. Classification results and confidence values are returned.
-6. Backend rules interpret the results.
-7. The listing workflow proceeds according to the quality decision.
+This example is the notebook's saved test-call output. It is **not** a documented live API response schema.
 
-### Image Processing
+The notebook also copies the dataset, holdout images, raw and rejected folders, and prediction artifacts to a Google Drive folder named `stalk_project`.
 
-The documented backend integration includes:
+## 8. Integration Considerations
 
-| Setting                           | Documented Value |
-| --------------------------------- | ---------------- |
-| Maximum image size                | 10 MB            |
-| Maximum processed image dimension | 1600 px          |
-| Classification input size         | 224 × 224        |
-| Default confidence threshold      | 0.60             |
-| Model execution                   | CPU              |
-| Metadata handling                 | EXIF removal     |
+The trained model can be called from a backend service that receives a maize stalk image. The integration must use the **same image preprocessing** as the notebook; otherwise, predictions may differ from the evaluated model.
 
-Image validation and preprocessing help ensure that submitted photographs are suitable for processing.
+```mermaid
+flowchart LR
+    A[Farmer supplies a stalk photo] --> B[Backend receives image]
+    B --> C[Image preprocessing]
+    C --> D[Saved classifier weights]
+    D --> E[Good/bad prediction and confidence]
+    E --> F[Application quality-review workflow]
+```
 
-### Confidence Handling
+This diagram describes the intended connection between the saved model and the application. The notebook verifies the local prediction helper, but it does not itself demonstrate a deployed Afyra endpoint or an end-to-end mobile-to-backend request.
 
-The documented backend behavior rejects a listing when the model produces a low-confidence result or identifies unacceptable quality.
+A prediction should be treated as **decision support**, particularly when the model labels a stalk good. Quality classification and price estimation are separate responsibilities.
 
-This is an automated decision rather than a confirmed human-review workflow.
 
----
-
-## Backend Integration
-
-The model is used through the FastAPI backend rather than being executed directly in the Flutter application.
-
-This allows the backend to coordinate:
-
-- Image validation.
-- Model inference.
-- Classification interpretation.
-- Listing acceptance or rejection.
-- Storage of relevant assessment results.
-
-The model artifact is documented at:
-
-`ml/weights/residue_cls.pt`
-
-The exact service implementation and API endpoint should be verified against the current backend repository.
-
----
-
-## Model Limitations
-
-The AI component has several important limitations.
-
-### Visual Assessment Only
-
-The model analyzes image appearance. It does not directly measure moisture, contamination, nutritional content or chemical composition.
-
-### Limited Evaluation Data
-
-The reported evaluation datasets are small. Results may change when the model encounters new locations, crop varieties or photographic conditions.
-
-### Image Quality Dependence
-
-Blurry photographs, poor lighting and unusual viewing angles can affect classification reliability.
-
-### Classification Errors
-
-The model can incorrectly classify acceptable material as unacceptable, or vice versa.
-
-### Need for Field Validation
-
-Performance should be evaluated using representative photographs captured by intended users under realistic operating conditions.
-
----
-
-## AI and Other Platform Algorithms
-
-Afyra's AI model should not be confused with the platform's other decision-making components.
-
-| Component              | Approach                          | Responsibility                                              |
-| ---------------------- | --------------------------------- | ----------------------------------------------------------- |
-| Quality Classification | Computer vision model             | Assess crop-residue photographs                             |
-| Pricing                | Rule-based estimation             | Estimate value using reference prices, quality and quantity |
-| Matching               | Business rules and matching logic | Identify eligible supply                                    |
-| Pooling                | Allocation and proximity logic    | Group eligible supply                                       |
-
-For the other components, see:
-
-- [Pricing Algorithm](/platform/pricing)
-- [Matching Algorithm](/platform/matching)
-- [Pooling Algorithm](/platform/pooling)
-
----
-
-## Future Evaluation and Improvement
-
-Potential improvements include collecting more representative farm photographs, expanding evaluation datasets and measuring model performance across different conditions.
-
-Any model update should be evaluated before replacing the existing model artifact.
-
-Important evaluation measures include classification accuracy, precision, recall, confusion matrices and the operational impact of incorrect decisions.
-
----
-
-## Related Documentation
-
-- [Backend](/backend/)
-- [System Architecture Diagram](/architecture/sad)
-- [ERD & Data Models](/architecture/data-models)
-- [Security](/security/)
-- [QA](/qa/)
-
-## References & Live Docs
-
-- [Afyra API Documentation](https://afyra-def6d466c54b.herokuapp.com/docs)
+>**Note: AI-Assisted Pre-Screening**
+>
+> Afyra's AI model helps manufacturers assess the potential quality of crop residues before placing sourcing orders. It analyzes uploaded images and provides an initial prediction using the **Good** and **Bad** quality categories.
+>
+> These predictions are intended to support early screening, not to provide a definitive judgment of residue quality. Actual quality may depend on factors that cannot be reliably determined from an image alone.
+>
+> By providing this initial assessment, Afyra helps manufacturers identify potentially suitable residues, make more informed sourcing decisions, and reduce the need to physically inspect every available listing before deciding which ones to pursue.
+>
+> **The final decision on residue quality and whether to proceed with an order remains with the manufacturer.**

@@ -6,7 +6,14 @@ export default defineConfig({
   description: "System design and implementation reference for Afyra",
   cleanUrls: true,
   head: [
-    ["link", { rel: "icon", type: "image/png", href: "/techelle-technical-documentation/images/afyra-icon.png" }],
+    [
+      "link",
+      {
+        rel: "icon",
+        type: "image/png",
+        href: "/techelle-technical-documentation/images/afyra-icon.png",
+      },
+    ],
     ["meta", { name: "theme-color", content: "#044a36" }],
   ],
   themeConfig: {
@@ -23,8 +30,14 @@ export default defineConfig({
       {
         text: "Architecture",
         items: [
-          { text: "System Architecture Diagram (SAD)", link: "/architecture/sad" },
-          { text: "Secure System Architecture Diagram (SSAD)", link: "/architecture/ssad" },
+          {
+            text: "System Architecture Diagram (SAD)",
+            link: "/architecture/sad",
+          },
+          {
+            text: "Secure System Architecture Diagram (SSAD)",
+            link: "/architecture/ssad",
+          },
           { text: "ERD & Data Models", link: "/architecture/data-models" },
         ],
       },
@@ -42,9 +55,18 @@ export default defineConfig({
           { text: "UI Designs", link: "/frontend-web/ui-designs" },
         ],
       },
-      { text: "Backend", link: "/backend/" },
+      {
+        text: "Backend",
+        items: [
+          { text: "Overview", link: "/backend/" },
+          { text: "API Documentation", link: "/backend/api-documentation" },
+        ],
+      },
       { text: "AI", link: "/ai/" },
-      { text: "Design & Brand Guidelines", link: "/design-and-brand-guidelines/" },
+      {
+        text: "Design & Brand Guidelines",
+        link: "/design-and-brand-guidelines/",
+      },
       { text: "Security", link: "/security/" },
       { text: "QA", link: "/qa/" },
       { text: "Integrations", link: "/integrations/" },
