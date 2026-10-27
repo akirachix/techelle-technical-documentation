@@ -1,6 +1,6 @@
 ---
 title: Pricing Algorithm
-description: How Afyra derives crop-residue reference prices and calculates quality- and quantity-adjusted estimates.
+description: Rule-based crop-residue price estimation using Tamia Feeds reference quotations.
 ---
 
 # Pricing Algorithm

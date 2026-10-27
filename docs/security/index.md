@@ -1,6 +1,6 @@
 ---
 title: Security
-description: Afyra authentication, authorization, data protection, API security, external service security, and security verification.
+description: Afyra authentication, authorization, data protection, API security, external service security and security verification.
 ---
 
 # Security
