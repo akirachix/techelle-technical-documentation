@@ -46,7 +46,19 @@ The pricing engine has two quality levels:
 
 A good-quality listing keeps the base rate before the quantity adjustment. A bad-quality listing receives a 30-percentage-point reduction before the quantity adjustment is combined.
 
-> **AI and pricing:** The image-classification model supports preliminary screening. The pricing endpoint accepts a quality grade as an input; the calculation itself does not inspect an image or automatically verify the grade.
+
+> **AI classification and pricing are separate processes.**
+>
+> Afyra's image-classification model supports preliminary crop-residue quality screening. The model does not calculate prices.
+>
+> The pricing service receives a quality grade (`GOOD` or `POOR`), a residue type, a county, and a quantity in kilograms.
+>
+> The pricing algorithm then uses the stored reference rate and the configured quality and quantity adjustments to calculate an estimated price range.
+>
+> The pricing calculation does not inspect uploaded images or independently verify whether the supplied grade is correct.
+>
+> The estimated price is not a guaranteed purchase price.
+
 
 ## 3. Quantity adjustment
 

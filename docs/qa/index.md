@@ -203,6 +203,45 @@ The workbook's current calculated execution count is **0 Pass/Fail results**, so
 
 The **Lists** sheet defines proposed reporting targets: 100% requirement coverage, 100% execution coverage, 95% pass rate, 60% automation coverage and 80% automation of selected candidates. These are targets for reporting, not achieved test results.
 
+
+### QA Evidence and Verification Status
+
+The figures in this documentation are reported from `Techelle_Afyra_Test_cases.xlsx`.
+
+| Measure | Reported value | Interpretation |
+|---|---:|---|
+| Acceptance criteria | 104 | Requirements documented in the workbook |
+| Requirement coverage | 100% | Acceptance criteria linked to test cases |
+| Total test cases | 145 | Designed test cases |
+| Manual test cases | 104 | Cases designated for manual testing |
+| Planned automation | 41 | Cases selected for future automation |
+| Automated cases recorded | 0 | No completed automation recorded in the reviewed workbook summary |
+| Recorded Pass/Fail executions | 0 | No completed Pass/Fail results recorded in the reviewed workbook summary |
+
+These figures describe the workbook's reported state. They have not been independently recalculated from the original spreadsheet during this documentation review.
+
+Requirement coverage is not equivalent to successful test execution.
+
+#### Evidence required for verification
+
+To verify QA results, reviewers need access to:
+
+- The original QA workbook and its latest revision.
+- Requirement and test-case identifiers.
+- Completed execution records with dates and results.
+- Defect reports linked to failed tests.
+- Automated test scripts and their execution reports, where available.
+
+#### Reporting rules
+
+- Do not report planned automation as completed automation.
+- Do not report designed test cases as passed tests.
+- Record execution results only after tests have been run.
+- Keep failed, blocked and unexecuted cases distinguishable.
+- Update the documented counts when the workbook changes.
+
+The current QA documentation establishes the test strategy and planned coverage. Product readiness must be assessed using actual execution evidence.
+I
 ## 11. Test Data and Evidence
 
 Test cases specify the environment, accounts, devices, data and tools required to reproduce each scenario. Testers should use controlled test accounts and avoid exposing real user passwords, OTPs or private information in screenshots and reports.

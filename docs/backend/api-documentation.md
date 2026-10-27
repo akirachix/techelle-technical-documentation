@@ -125,10 +125,9 @@ The exact authentication request and token response schemas are available in Swa
 
 ## 5. Main API endpoints
 
-
 The API is organized around the platform's main features.
 
-| API endpoints          | Responsibility                                                       |
+| API endpoints      | Responsibility                                                       |
 | ------------------ | -------------------------------------------------------------------- |
 | Authentication     | User registration, login, verification, and authentication workflows |
 | Users and Profiles | Account information and role-specific profile operations             |
@@ -238,7 +237,51 @@ An invalid payload may return HTTP `422 Unprocessable Entity`.
 
 The exact successful response structure should be taken from the farm endpoint's Swagger schema.
 
-### 6.3 Retrieve a Price Quote
+### 6.3 Manage Farm Collection Hosting
+
+Collection-hosting availability is stored separately for each registered farm.
+
+A farmer can enable or disable hosting without changing their account registration.
+
+**Endpoints:**
+
+| Method | Endpoint           | Purpose                                   |
+| ------ | ------------------ | ----------------------------------------- |
+| GET    | `/farms`           | Retrieve the authenticated farmer's farms |
+| GET    | `/farms/{farm_id}` | Retrieve an individual farm               |
+| PATCH  | `/farms/{farm_id}` | Update permitted farm details             |
+
+**Enable hosting:**
+
+```http
+PATCH /farms/{farm_id}
+Authorization: Bearer ACCESS_TOKEN
+Content-Type: application/json
+```
+
+```json
+{
+  "can_host": true
+}
+```
+
+**Disable hosting:**
+
+```json
+{
+  "can_host": false
+}
+```
+
+The API returns the updated farm, including its saved `can_host` value.
+
+The farmer can manage hosting separately for each farm under **My farms** in the mobile application.
+
+The backend may reject disabling hosting when the farm is associated with an unfinished hosted pickup. The mobile application must display the error and retain the previously saved status.
+
+Only authenticated farmers can access these farm-management endpoints.
+
+### 6.4 Retrieve a Price Quote
 
 **Endpoint**
 
@@ -297,7 +340,7 @@ When no price is available, `rate_kes_per_kg` may be `null`.
 
 The frontend should show an unavailable-price message instead of displaying a made-up value.
 
-### 6.4 Calculate a Price Estimate
+### 6.5 Calculate a Price Estimate
 
 **Endpoint**
 
@@ -368,6 +411,52 @@ All amounts are illustrative, not actual Afyra calculations.
 | `is_estimate`              | Indicates that the result is an estimate |
 
 The estimated price is not a guaranteed transaction price.
+
+### 6.6 Farmer Account Management
+
+Afyra allows authenticated users to update their names and change their passwords.
+
+#### Update Profile
+
+**Endpoint:** `PATCH /users/me`
+
+**Authentication:** Required.
+
+**Request example:**
+
+```json
+{
+  "first_name": "Amina",
+  "last_name": "Mwangi"
+}
+```
+
+Both fields are optional, but supplied names must not be empty.
+
+The endpoint returns the updated user profile.
+
+The current endpoint does not support changing the user's phone number or email address.
+
+#### Change Password
+
+**Endpoint:** `POST /users/me/password`
+
+**Authentication:** Required.
+
+**Request example:**
+
+```json
+{
+  "current_password": "CURRENT_PASSWORD",
+  "new_password": "NEW_PASSWORD"
+}
+```
+
+The new password must contain at least eight characters.
+
+The backend verifies the current password before saving the new one.
+
+A successful password change invalidates the user's existing authentication tokens. The user must sign in again.
 
 ## 7. Request Validation
 

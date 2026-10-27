@@ -739,3 +739,70 @@ These are verification gaps in the documentation, not confirmed security vulnera
 - [Testing and QA](/qa/)
 - [ERD and Data Models](/architecture/data-models)
 
+## 18. Security Implementation Verification
+
+### Purpose
+
+This section defines how Afyra's documented security controls should be checked against the implemented backend, web application, and mobile application.
+
+Documenting a security control does not prove that the control is correctly enforced.
+
+### Security verification matrix
+
+| Area                  | Verification requirement                                              | Evidence                         |
+| --------------------- | --------------------------------------------------------------------- | -------------------------------- |
+| Authentication        | Protected endpoints reject unauthenticated requests                   | Authentication tests             |
+| Authorization         | Users cannot perform actions outside their assigned roles             | Role-based access tests          |
+| Password handling     | Passwords are hashed and password changes verify the current password | Authentication service and tests |
+| Token management      | Expired, invalidated, and revoked tokens are rejected                 | Token lifecycle tests            |
+| Farmer data access    | Farmers cannot modify farms belonging to other farmers                | Farm authorization tests         |
+| Administrator access  | Administrative endpoints require the appropriate role                 | Administrator API tests          |
+| Request validation    | Invalid request data is rejected                                      | Schema validation tests          |
+| File uploads          | Unsupported or invalid uploads are rejected                           | Upload validation tests          |
+| External integrations | Credentials are configured securely                                   | Configuration review             |
+| Error handling        | Responses do not expose secrets or sensitive internal information     | Error-response tests             |
+| Transport security    | Production traffic uses HTTPS                                         | Deployment configuration         |
+
+### Verification process
+
+For each security control:
+
+1. Identify the documented requirement.
+2. Locate the relevant implementation.
+3. Identify the endpoint or workflow being protected.
+4. Review its authentication and authorization dependencies.
+5. Run a test covering permitted access.
+6. Run a test covering prohibited access.
+7. Record the results and supporting evidence.
+8. Document any missing or incomplete controls.
+
+### Authorization checks
+
+Role-based access must be enforced by the backend, not only by hiding interface elements.
+
+For example, removing an administrator button from the mobile or web interface does not prevent an unauthorized user from calling the corresponding API directly.
+
+Authorization tests should cover both successful and rejected requests.
+
+### Sensitive information
+
+Security evidence must not contain:
+
+- Real passwords or OTP codes.
+- JWT access or refresh tokens.
+- Private API keys.
+- Database connection strings containing credentials.
+- Private cloud-storage credentials.
+- Personal user information not required for testing.
+
+Use sanitized examples when publishing screenshots, logs, or request samples.
+
+### Security review status
+
+The existing security documentation describes Afyra's intended and implemented security mechanisms.
+
+However, this documentation review does not constitute a penetration test or an independent verification of every security control.
+
+Controls should be marked as verified only after the corresponding source code, configuration, and test evidence have been inspected.
+
+Any outstanding security findings should be tracked separately until resolved.
