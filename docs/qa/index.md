@@ -1,607 +1,219 @@
 ---
-title: Testing and Quality Assurance
-description: Afyra testing strategy, test cases, execution results, defect management, and release validation.
+title: Quality Assurance
+description: Afyra test strategy, requirements traceability, test cases and reporting.
 ---
 
-# Testing and Quality Assurance
+# Quality Assurance
 
 ## 1. Overview
 
-Testing and Quality Assurance (QA) help ensure that Afyra works correctly, protects user information, and supports the workflows needed by farmers, manufacturers, drivers, and administrators.
+Quality assurance (QA) for Afyra is organized around the features used by farmers, manufacturers, administrators and drivers. The aim is to check that each workflow meets its acceptance criteria, handles incorrect input safely, and behaves consistently across the mobile application, web application, backend and connected services.
 
-Afyra consists of a Flutter mobile application, a Next.js web application, a FastAPI backend, a PostgreSQL database, and a crop-residue classification component.
+The team's QA workbook, **Techelle_Afyra_Test_cases.xlsx**, contains requirements, feature ownership, detailed test cases, execution fields, automation planning, defect tracking and a calculated coverage report.
 
-Testing covers individual features, communication between components, user workflows, data validation, security, and usability.
+The workbook separates **test-case design and requirement coverage** from **test execution**. A requirement with a linked test case has been covered by the test plan; this does not by itself mean the feature has passed testing.
 
-This section explains the testing approach, representative test cases, how results are recorded, and how defects are managed.
+## 2. QA Scope
 
-**Evidence rule:** A test is only marked as passed when its actual result has been recorded and verified. Test cases without execution evidence are marked **Not recorded**, rather than being reported as successful.
+The workbook organizes testing into the following areas:
 
-## 2. Testing Objectives
+| Area                             | Main workflows                                                                    |
+| -------------------------------- | --------------------------------------------------------------------------------- |
+| Accounts and API platform        | User registration, authentication, permissions and API behaviour                  |
+| Farmer supply listing            | Creating and managing crop-residue listings                                       |
+| Quality verification and pricing | Image quality checks, grades and price-related behaviour                          |
+| Market prices                    | Viewing and managing market-price information                                     |
+| Matching and pooling             | Selecting available supply against a manufacturer's request                       |
+| Batch details                    | Viewing quantities and details of pooled supply                                   |
+| Purchase confirmation            | Confirming purchases and pickup dates                                             |
+| SMS notifications                | Sending and handling notification events                                          |
+| Driver registration              | Creating and managing driver accounts                                             |
+| Dispatch and routing             | Assigning deliveries and tracking transport workflows                             |
+| End-to-end journeys              | Cross-role workflows involving farmers, manufacturers, administrators and drivers |
 
-The main objectives of QA are to:
+The test cases reflect the requirements written in the workbook. Some descriptions use older terminology, such as **A/B/C quality grades**, while the current AI classifier uses **good/bad** labels. Before running those cases, the team should align the expected results with the agreed product requirements; changing a test case's wording must not silently change its requirement.
 
-- Verify that implemented features meet their requirements.
-- Confirm that frontend applications communicate correctly with the backend.
-- Check that user input is validated before processing.
-- Verify that authentication and role-based permissions are enforced.
-- Confirm that records are created, retrieved, and updated correctly.
-- Check how the system handles empty data, network failures, and invalid requests.
-- Evaluate crop-residue classification behavior using appropriate test images.
-- Identify usability problems in important user workflows.
-- Detect regressions when new changes are introduced.
+## 3. Requirements Traceability
 
-## 3. Testing Scope
+Each test case links back to a requirement through a **Req ID** and to a feature through a **Feature ID**. This makes it possible to answer two questions:
 
-| Component                   | Testing Focus                                                                          |
-| --------------------------- | -------------------------------------------------------------------------------------- |
-| Flutter mobile application  | Navigation, forms, validation, state management, API integration, and device behavior  |
-| Next.js web application     | Navigation, role-based interfaces, forms, API integration, and responsive behavior     |
-| FastAPI backend             | Request validation, authentication, authorization, business logic, and error responses |
-| PostgreSQL database         | Data persistence, relationships, constraints, and migrations                           |
-| Crop-residue classification | Valid images, invalid images, prediction output, and classification errors             |
-| External integrations       | Pricing sources, image storage, mapping, and SMS operations                            |
-| End-to-end workflows        | Complete user actions across frontend, backend, and database                           |
+1. Does every acceptance criterion have at least one test case?
+2. Which test cases must be reviewed when a requirement changes?
 
-Testing is performed against the features that are implemented and available in the selected environment. Planned features are not reported as tested.
+The workbook's Coverage Report summarizes:
 
-## 4. Testing Levels
+| Measure                       | Workbook value |
+| ----------------------------- | -------------: |
+| Acceptance criteria           |            104 |
+| Requirement coverage          |           100% |
+| Test cases                    |            145 |
+| Manual test cases             |            104 |
+| Planned automation test cases |             41 |
+| Automated test cases          |              0 |
 
-### 4.1 Unit Testing
+**100% requirement coverage** means each acceptance criterion is linked to at least one test case in the workbook. It is a test-design measure, not a claim that every feature works.
 
-Unit tests check individual functions or components independently.
+### Test-case distribution
 
-Examples include:
+| Workbook section        | Test cases |
+| ----------------------- | ---------: |
+| Accounts & Listing      |         47 |
+| Quality & Market Prices |         28 |
+| Pooling & Batch View    |         24 |
+| Confirm & SMS Alerts    |         23 |
+| Drivers & Dispatch      |         23 |
+| **Total**               |    **145** |
 
-- Validating a residue quantity.
-- Checking a pricing calculation.
-- Testing a ViewModel state transition.
-- Validating a request schema.
-- Checking how a service handles an empty response.
+## 4. Test Case Structure
 
-Unit tests help identify problems before multiple components are connected.
+Each test case is designed to be repeatable. The workbook provides these fields:
 
-### 4.2 Integration Testing
+| Field                    | Purpose                                                       |
+| ------------------------ | ------------------------------------------------------------- |
+| TC ID                    | Unique identifier, such as `TC-M3-001`                        |
+| Feature ID and Req ID    | Links to the feature and acceptance criterion                 |
+| Title                    | Behaviour being checked                                       |
+| Layer                    | Unit, API, integration, UI or end-to-end                      |
+| Test type                | Functional, negative, boundary, security and other categories |
+| Priority                 | Critical, high, medium or low                                 |
+| Preconditions            | Setup required before the test starts                         |
+| Steps                    | Actions for the tester to perform                             |
+| Test data                | Values or accounts needed for the scenario                    |
+| Expected result          | Correct system behaviour                                      |
+| Execution method         | Manual, automated or planned automation                       |
+| Actual result and status | What happened when the test was executed                      |
+| Defect ID                | Link to a reported issue when applicable                      |
 
-Integration tests verify communication between components.
+Test cases use member-specific IDs such as `TC-M1-`, `TC-M2-`, `TC-M3-`, `TC-M4-` and `TC-M5-` to avoid duplicates across the team.
 
-Examples include:
+## 5. Testing Levels and Types
 
-- Flutter service to FastAPI endpoint.
-- FastAPI service to PostgreSQL repository.
-- Web application to protected backend API.
-- Backend to image storage.
-- Backend to supplier-price collection service.
+### Unit testing
 
-Integration testing checks whether data is passed correctly and errors are handled across component boundaries.
+Checks a small part of the system in isolation. The workbook includes unit-level cases for rules such as pooling quantities and capacity limits.
 
-### 4.3 API Testing
+### API testing
 
-API tests verify:
+Checks request validation, permissions, responses and changes to stored data. Example scenarios include quality verification and account-related endpoints.
 
-- HTTP methods and routes.
-- Required parameters.
-- Request and response schemas.
-- Authentication.
-- Authorization.
-- Validation errors.
-- Empty responses.
-- Database operations.
+### Integration testing
 
-API testing can be performed using Swagger UI, curl, Postman, and automated tests.
+Checks whether connected components exchange information correctly, including application-to-API flows and notifications.
 
-### 4.4 End-to-End Testing
+### UI testing
 
-End-to-end testing follows a complete user workflow.
+Checks forms, navigation, displayed values, error messages and user actions in the mobile and web interfaces.
 
-For example:
+### End-to-end testing
 
-1. A farmer authenticates.
-2. The farmer registers a farm.
-3. The application sends the request to FastAPI.
-4. The backend validates and stores the information.
-5. The application retrieves and displays the saved farm.
+Checks complete workflows across roles, such as listing residue, finding supply, confirming a purchase and coordinating pickup.
 
-This checks whether the connected workflow works from the user's perspective.
+### Negative, boundary and security testing
 
-### 4.5 Usability Testing
+Tests invalid inputs, duplicate submissions, capacity boundaries, authentication failures and attempts to enter unsafe text.
 
-Usability testing evaluates whether users can complete important tasks without unnecessary confusion.
+### Usability, accessibility and compatibility
 
-It focuses on:
+The workbook also defines test types for usability, accessibility and compatibility. These help assess whether users can understand the workflows and whether the interfaces behave appropriately across supported devices and environments.
 
-- Understanding instructions.
-- Finding the correct features.
-- Completing forms.
-- Recognizing errors.
-- Understanding confirmation messages.
-- Completing tasks without facilitator assistance.
+## 6. Example Test Scenarios From the Workbook
 
-Usability observations should be recorded separately from automated functional test results.
+The following are examples of the behaviours specified in the test-case sheets; they are not presented as completed test runs.
 
-### 4.6 Regression Testing
+| Area                  | Scenario                                                                                             |
+| --------------------- | ---------------------------------------------------------------------------------------------------- |
+| Quality verification  | Check that the interface displays the quality result and relevant explanation                        |
+| Quality API           | Check that the quality endpoint and stored record retain the expected classification details         |
+| Pooling               | Check that a proposed pool does not exceed the collection-yard capacity                              |
+| Supply matching       | Check how the application displays a supply shortfall                                                |
+| Purchase confirmation | Check that a pickup date is required and that listings are reserved after confirmation               |
+| SMS                   | Check notifications associated with the purchase and pickup process                                  |
+| Driver management     | Check registration, duplicate phone numbers and driver-capacity updates                              |
+| Security              | Check that script-like input is treated safely and duplicate submissions do not create extra records |
 
-Regression testing checks whether existing functionality still works after code changes.
+For the precise preconditions, steps, test data and expected results, use the relevant test-case row in the workbook rather than shortening the case during execution.
 
-Regression checks are especially important after changes to:
+## 7. Test Execution Workflow
 
-- Authentication and authorization.
-- Shared API clients.
-- Database schemas.
-- Pricing calculations.
-- Shared frontend components.
-- Navigation and user roles.
-
-## 5. Testing Tools
-
-| Tool                       | Component                              | Purpose                             |
-| -------------------------- | -------------------------------------- | ----------------------------------- |
-| Flutter Test               | Mobile                                 | Widget and application tests        |
-| Flutter Analyze            | Mobile                                 | Static analysis                     |
-| Dart Format                | Mobile                                 | Code formatting checks              |
-| Playwright                 | Web, where configured                  | Browser-based automated testing     |
-| FastAPI TestClient / HTTPX | Backend, where configured              | API testing                         |
-| Pytest                     | Backend                                | Automated Python tests              |
-| Swagger UI                 | Backend                                | Manual API inspection and execution |
-| PostgreSQL                 | Backend                                | Database-dependent testing          |
-| GitHub Actions             | Repositories with configured workflows | Automated checks during development |
-
-A tool is included here as part of the testing approach. Its presence in this table does not mean it has been configured or executed in every repository.
-
-## 6. Test Environment
-
-Tests should record the environment in which they were performed.
-
-| Item                | Information to Record                    |
-| ------------------- | ---------------------------------------- |
-| Test date           | Date of execution                        |
-| Application version | Commit hash, branch, or release          |
-| Environment         | Local, staging, or deployed              |
-| Mobile device       | Device model and operating system        |
-| Browser             | Browser and version                      |
-| Backend             | Running API version and URL              |
-| Database            | Test database and migration state        |
-| Test account        | Role used, without recording credentials |
-| Tester              | Person responsible for execution         |
-
-### Test Data
-
-Testing should use controlled test accounts and records.
-
-Examples include:
-
-- A farmer test account.
-- A manufacturer test account.
-- A driver test account.
-- An administrator test account.
-- A test farm.
-- A residue type already present in the test database.
-- Valid and invalid image samples.
-
-Do not use production credentials or sensitive user information in published test evidence.
-
-Do not invent database records to claim that a feature was successfully tested.
-
-## 7. Functional Test Cases
-
-The following cases provide a reusable test suite for Afyra.
-
-They describe expected behavior. Their execution status must be updated using actual test evidence.
-
-### 7.1 Authentication and Authorization
-
-| ID      | Test Case                                                  | Expected Result                                                       | Execution Status |
-| ------- | ---------------------------------------------------------- | --------------------------------------------------------------------- | ---------------- |
-| AUTH-01 | Log in with valid credentials                              | User is authenticated and can access permitted features               | Not recorded     |
-| AUTH-02 | Log in with an incorrect password                          | Login is rejected with an appropriate error                           | Not recorded     |
-| AUTH-03 | Access a protected endpoint without authentication         | Request is rejected                                                   | Not recorded     |
-| AUTH-04 | Access an administrator endpoint using a non-admin account | Access is denied                                                      | Not recorded     |
-| AUTH-05 | Access a protected endpoint with an expired token          | Request is rejected or handled through the configured refresh process | Not recorded     |
-
-### 7.2 Farm Management
-
-| ID      | Test Case                                  | Expected Result                                                     | Execution Status |
-| ------- | ------------------------------------------ | ------------------------------------------------------------------- | ---------------- |
-| FARM-01 | Register a farm using valid data           | Farm is created and returned or made available for retrieval        | Not recorded     |
-| FARM-02 | Submit a farm with missing required fields | Backend rejects the invalid request                                 | Not recorded     |
-| FARM-03 | Submit invalid coordinate values           | Validation prevents invalid farm registration                       | Not recorded     |
-| FARM-04 | Retrieve farms for the authenticated user  | Relevant farm records are returned                                  | Not recorded     |
-| FARM-05 | Submit the same farm form repeatedly       | Application handles repeated submissions according to backend rules | Not recorded     |
-
-### 7.3 Residue Catalog
-
-| ID     | Test Case                                       | Expected Result                      | Execution Status |
-| ------ | ----------------------------------------------- | ------------------------------------ | ---------------- |
-| CAT-01 | Request residue types                           | API returns HTTP 200 and a list      | Not recorded     |
-| CAT-02 | Request residue types when the catalog is empty | API returns an empty array           | Not recorded     |
-| CAT-03 | Display an empty residue catalog in Flutter     | User sees an appropriate empty state | Not recorded     |
-| CAT-04 | Create a residue type as an administrator       | Valid request creates a residue type | Not recorded     |
-| CAT-05 | Create a residue type with an invalid name      | Backend rejects invalid input        | Not recorded     |
-
-### 7.4 Pricing
-
-| ID       | Test Case                               | Expected Result                                                   | Execution Status |
-| -------- | --------------------------------------- | ----------------------------------------------------------------- | ---------------- |
-| PRICE-01 | Request a quote with valid parameters   | API returns the defined quote structure                           | Not recorded     |
-| PRICE-02 | Request a quote with no available price | Missing price is represented without a fabricated amount          | Not recorded     |
-| PRICE-03 | Estimate a price using good quality     | API returns an estimate with `quality: good`                      | Not recorded     |
-| PRICE-04 | Estimate a price using bad quality      | API returns an estimate with `quality: bad`                       | Not recorded     |
-| PRICE-05 | Submit zero or negative weight          | API rejects the request                                           | Not recorded     |
-| PRICE-06 | Submit an unsupported grade             | API rejects the request                                           | Not recorded     |
-| PRICE-07 | Retrieve a stale reference price        | Response identifies the price as stale according to backend rules | Not recorded     |
-
-### 7.5 Residue Listings
-
-| ID      | Test Case                                          | Expected Result                                            | Execution Status |
-| ------- | -------------------------------------------------- | ---------------------------------------------------------- | ---------------- |
-| LIST-01 | Create a listing with valid required information   | Listing is created                                         | Not recorded     |
-| LIST-02 | Submit a listing with missing required information | Submission is rejected or prevented                        | Not recorded     |
-| LIST-03 | Upload a supported residue image                   | Image is accepted and processed by the configured workflow | Not recorded     |
-| LIST-04 | Upload an unsupported file                         | File is rejected safely                                    | Not recorded     |
-| LIST-05 | Retrieve the user's listings                       | Relevant listings are displayed                            | Not recorded     |
-
-### 7.6 Manufacturer and Collection Workflows
-
-| ID     | Test Case                                              | Expected Result                                          | Execution Status |
-| ------ | ------------------------------------------------------ | -------------------------------------------------------- | ---------------- |
-| SRC-01 | Submit a valid sourcing request                        | Request is created according to backend rules            | Not recorded     |
-| SRC-02 | Submit invalid sourcing data                           | Validation rejects the request                           | Not recorded     |
-| COL-01 | View an assigned collection                            | Authorized user can retrieve the assignment              | Not recorded     |
-| COL-02 | Attempt to access another user's restricted collection | Authorization prevents access                            | Not recorded     |
-| COL-03 | Submit a collection status change                      | Valid transition is processed according to backend rules | Not recorded     |
-
-These cases must be matched to the implemented sourcing and collection workflows before execution.
-
-## 8. API Test Cases
-
-The following cases focus on backend endpoints whose contracts have been reviewed.
-
-| ID     | Endpoint                    | Test Input                      | Expected Result                         |
-| ------ | --------------------------- | ------------------------------- | --------------------------------------- |
-| API-01 | `GET /counties`             | No parameters                   | HTTP 200 with an array of county names  |
-| API-02 | `GET /residue-types`        | No parameters                   | HTTP 200 with an array of residue types |
-| API-03 | `POST /admin/residue-types` | Valid administrator request     | HTTP 201 with created residue type      |
-| API-04 | `POST /admin/residue-types` | Name shorter than 2 characters  | HTTP 422 validation error               |
-| API-05 | `GET /prices/quote`         | Valid authenticated request     | HTTP 200 with quote schema              |
-| API-06 | `GET /prices/estimate`      | Positive weight and valid grade | HTTP 200 with estimate schema           |
-| API-07 | `GET /prices/estimate`      | `weight_kg=0`                   | HTTP 422 validation error               |
-| API-08 | `GET /prices/estimate`      | `grade=EXCELLENT`               | HTTP 422 validation error               |
-| API-09 | `GET /admin/market-prices`  | Non-admin account               | Request denied                          |
-| API-10 | `POST /admin/market-prices` | Negative price                  | HTTP 422 validation error               |
-
-These are expected outcomes based on the reviewed API contracts, not a report of completed test executions.
-
-## 9. Machine Learning Testing
-
-Afyra's crop-residue classification component should be tested independently and through its application integration.
-
-### 9.1 Functional Inference Tests
-
-| ID    | Test Case                                    | Expected Result                                                            | Execution Status |
-| ----- | -------------------------------------------- | -------------------------------------------------------------------------- | ---------------- |
-| ML-01 | Submit a supported crop-residue image        | Model returns a prediction in the configured output format                 | Not recorded     |
-| ML-02 | Submit an unsupported file                   | Request is rejected safely                                                 | Not recorded     |
-| ML-03 | Submit a corrupted image                     | Application handles the failure without crashing                           | Not recorded     |
-| ML-04 | Submit an image with unclear residue content | System handles the prediction according to its confidence and error rules  | Not recorded     |
-| ML-05 | Model weights are unavailable                | Application reports an inference failure without exposing internal details | Not recorded     |
-
-### 9.2 Model Evaluation
-
-Model evaluation should use a labeled dataset separate from training data.
-
-Record:
-
-- Dataset name and source.
-- Number of evaluation images.
-- Class distribution.
-- Model version.
-- Evaluation date.
-- Accuracy.
-- Precision.
-- Recall.
-- F1-score.
-- Confusion matrix.
-- Misclassification examples.
-
-No accuracy or other model-performance metric should be published without the corresponding evaluation results.
-
-### 9.3 Misclassification Handling
-
-When a prediction is incorrect, record:
-
-1. The input image reference.
-2. The expected class.
-3. The predicted class.
-4. The confidence score, if provided.
-5. The error category.
-6. Whether the user can correct or retry the result.
-7. Whether the issue requires a model or application change.
-
-Avoid treating a successful HTTP response as proof that the model prediction is correct.
-
-## 10. Integration Testing
-
-Integration tests verify that connected components work together.
-
-| ID     | Integration                    | Test Scenario                    | Expected Result                                              |
-| ------ | ------------------------------ | -------------------------------- | ------------------------------------------------------------ |
-| INT-01 | Flutter → FastAPI              | Retrieve residue catalog         | Flutter receives and displays the API response               |
-| INT-02 | Flutter → FastAPI → PostgreSQL | Register a farm                  | Valid farm data is stored and retrievable                    |
-| INT-03 | Next.js → FastAPI              | Make an authenticated request    | Backend validates authentication and returns authorized data |
-| INT-04 | FastAPI → Pricing Service      | Retrieve reference price         | Available price or supported unavailable state is returned   |
-| INT-05 | FastAPI → Image Storage        | Upload an accepted image         | Image is handled by the configured storage workflow          |
-| INT-06 | FastAPI → SMS Provider         | Trigger an eligible notification | Provider response and failure handling are recorded          |
-
-Integration test results must include the actual environment and observed outcome.
-
-## 11. Usability Testing
-
-Usability testing focuses on whether target users can complete important tasks using Afyra.
-
-### Testing Approach
-
-The planned usability study uses:
-
-- **Duration:** Two days.
-- **Method:** In-person moderated sessions.
-- **Participants:** A mix of real users and suitable proxies.
-- **Session length:** Approximately 25–30 minutes.
-- **Accounts:** Pre-created test accounts.
-- **Tasks:** Three core tasks per participant role.
-- **Success criteria:** Improvement-focused, emphasizing usability problems and opportunities for improvement.
-
-### Participant Roles
-
-Recruit participants who represent the relevant Afyra workflows:
-
-- Farmers.
-- Manufacturers.
-- Drivers.
-- Administrators, where administrative workflows are included.
-
-Suitable proxies should have enough familiarity with the role's activities to provide useful feedback.
-
-### Session Structure
-
-| Stage               | Suggested Duration | Activity                                        |
-| ------------------- | ------------------ | ----------------------------------------------- |
-| Introduction        | 3 minutes          | Explain the session and obtain consent          |
-| Task execution      | 18–21 minutes      | Participant completes three tasks               |
-| Follow-up questions | 4 minutes          | Discuss confusing steps and suggestions         |
-| Closing             | 2 minutes          | Thank participant and record final observations |
-
-### Observation Criteria
-
-For each task, record:
-
-- Whether the participant completed it.
-- Whether assistance was needed.
-- Errors encountered.
-- Navigation difficulties.
-- Confusing labels or instructions.
-- Time taken, where practical.
-- Participant comments.
-- Suggested improvements.
-
-The purpose is to identify usability improvements, not to claim that every participant must complete every task without difficulty.
-
-### Usability Results
-
-Actual participant counts, task outcomes, observations, and findings must be added after the study.
-
-Do not present the planned study as completed testing.
-
-## 12. Test Execution Results
-
-This section is used to record real testing evidence.
-
-### Current Evidence Status
-
-The reviewed backend source confirms the presence of catalog-related test code, including:
-
-```text
-tests/test_catalog.py
-```
-
-A known test is:
-
-```text
-test_residue_types_are_public
-```
-
-This establishes that the test exists in the backend source. It does not establish whether it passed during the latest execution.
-
-### Execution Summary
-
-| Component            | Test Evidence                       | Result                        |
-| -------------------- | ----------------------------------- | ----------------------------- |
-| Backend catalog      | Test file and named test identified | Execution result not recorded |
-| Backend pricing      | Endpoint schemas reviewed           | Execution result not recorded |
-| Flutter mobile       | Test commands documented            | Execution result not recorded |
-| Next.js web          | Test approach documented            | Execution result not recorded |
-| Machine learning     | Evaluation requirements identified  | Metrics not supplied          |
-| End-to-end workflows | Representative cases defined        | Execution result not recorded |
-| Usability testing    | Study plan defined                  | Findings not supplied         |
-
-Update this table when actual test reports, terminal outputs, CI results, or signed observation sheets become available.
-
-### Test Execution Record
-
-Use the following format for each executed test:
-
-| Field                         | Value                           |
-| ----------------------------- | ------------------------------- |
-| Test ID                       |                                 |
-| Test date                     |                                 |
-| Tester                        |                                 |
-| Environment                   |                                 |
-| Application version or commit |                                 |
-| Test data                     |                                 |
-| Expected result               |                                 |
-| Actual result                 |                                 |
-| Status                        | Pass / Fail / Blocked / Not Run |
-| Evidence                      |                                 |
-| Defect reference              |                                 |
-
-## 13. Running Automated Tests
-
-### Flutter
-
-Run static analysis:
-
-```bash
-flutter analyze
-```
-
-Run configured tests:
-
-```bash
-flutter test
-```
-
-Check formatting:
-
-```bash
-dart format --output=none --set-exit-if-changed lib
-```
-
-### Backend
-
-Run catalog tests:
-
-```bash
-pytest tests/test_catalog.py -v
-```
-
-Run the complete configured test suite:
-
-```bash
-pytest
-```
-
-### Next.js
-
-Run the production build:
-
-```bash
-npm run build
-```
-
-Run other tests and linting commands only if they are defined in the web repository.
-
-### Recording Results
-
-For each execution, save:
-
-- Command used.
-- Date and environment.
-- Commit hash.
-- Number of tests passed.
-- Number of tests failed.
-- Number of tests skipped.
-- Relevant failure logs.
-
-Do not label a build check as an end-to-end test.
-
-## 14. Defect Management
-
-A defect is recorded when actual behavior differs from the expected result.
-
-### Defect Severity
-
-| Severity | Description                                                      | Example                                   |
-| -------- | ---------------------------------------------------------------- | ----------------------------------------- |
-| Critical | Prevents a core workflow or creates a serious security/data risk | Unauthorized access to restricted records |
-| High     | Major functionality is broken                                    | Farmer cannot register a valid farm       |
-| Medium   | Feature works incorrectly but has a workaround                   | Incorrect validation message              |
-| Low      | Minor issue with limited functional impact                       | Misaligned button or inconsistent label   |
-
-### Defect Report Template
-
-```text
-Defect ID:
-Title:
-Reported by:
-Date:
-Environment:
-Affected component:
-Severity:
-Priority:
-
-Preconditions:
-
-Steps to Reproduce:
-1.
-2.
-3.
-
-Expected Result:
-
-Actual Result:
-
-Evidence:
-
-Assigned Developer:
-
-Status:
-
-Retest Result:
-```
-
-### Defect Lifecycle
+The workbook supports a consistent execution process:
 
 ```mermaid
 flowchart TD
-    A[Defect Reported] --> B[Reviewed and Prioritized]
-    B --> C[Assigned]
-    C --> D[Fix Implemented]
-    D --> E[Retesting]
-    E --> F{Issue Resolved?}
-    F -->|Yes| G[Closed]
-    F -->|No| C
+    A[Select requirement and test case] --> B[Prepare environment and test data]
+    B --> C[Perform the documented steps]
+    C --> D[Compare actual and expected results]
+    D --> E{Result}
+    E -->|Pass| F[Record pass and execution details]
+    E -->|Fail| G[Create defect and link Defect ID]
+    E -->|Blocked| H[Record blocker]
+    G --> I[Fix, retest and update status]
+    F --> J[Update coverage report]
+    H --> J
+    I --> J
 ```
 
-A defect should only be closed after the fix has been verified.
+For each run, the tester records the actual result, status, executor and execution date. When a test fails, the related defect is entered in the **Defects** sheet and its identifier is added to the test case.
 
-## 15. Release Validation
+## 8. Automation Plan
 
-Before a release, the team should verify that:
+The workbook separates manually executed scenarios from cases selected for future automation.
 
-- [ ] Core user workflows have been tested.
-- [ ] Authentication and authorization checks pass.
-- [ ] Critical and high-severity defects are resolved or explicitly assessed.
-- [ ] Database migrations have been validated.
-- [ ] Frontend applications connect to the correct backend environment.
-- [ ] Empty and error states are handled.
-- [ ] Image upload and classification behavior have been checked where applicable.
-- [ ] External integrations have been checked in the intended environment.
-- [ ] Automated test results have been recorded.
-- [ ] Known limitations have been documented.
-- [ ] The release decision is supported by actual testing evidence.
+| Measure                              | Count |
+| ------------------------------------ | ----: |
+| Manual test cases                    |   104 |
+| Planned automation                   |    41 |
+| Automated test cases in the workbook |     0 |
 
-A release should not be described as fully tested when required checks remain unexecuted.
+The **Test Scripts** sheet is designed to connect automated scripts to their test cases. Its columns include script ID, feature, tool/framework, repository path, script status, last run date, result and runtime.
 
-## 16. Known Limitations
+Automation should prioritize stable, repeatable checks such as input validation, API responses, permissions, pricing calculations and pooling rules. Usability observations and workflows requiring human judgement can remain manual.
 
-The following documentation limitations remain until supporting evidence is added:
+## 9. Defect Management
 
-- Actual automated test execution summaries are not included.
-- Test coverage percentages have not been verified.
-- Machine learning evaluation metrics have not been supplied.
-- Usability participant results and findings have not been added.
-- External integration test outcomes have not been confirmed.
-- The latest release's full regression results have not been provided.
+The **Defects** sheet defines a consistent issue-reporting structure:
 
-These limitations describe the available QA evidence, not necessarily defects in the Afyra application.
+| Field                     | Meaning                                              |
+| ------------------------- | ---------------------------------------------------- |
+| Defect ID                 | Unique issue reference                               |
+| Feature ID and TC ID      | Affected feature and test case                       |
+| Title                     | Short description of the problem                     |
+| Steps to reproduce        | Actions needed to see the problem                    |
+| Expected / Actual         | Difference between correct and observed behaviour    |
+| Severity                  | Critical, high, medium or low                        |
+| Status                    | Open, in progress, fixed, retest, closed or rejected |
+| Reported by / Assigned to | Responsibility for reporting and resolution          |
+| Dates and notes           | Tracking and supporting context                      |
 
-## 17. Related Documentation
+A defect is ready for retesting after the relevant fix has been delivered. The original test steps should be repeated, followed by relevant regression checks.
 
-- [Developer Guide](/developer-guide/)
-- [API Documentation](/backend/api-documentation)
-- [Backend Overview](/backend/)
-- [Frontend Mobile](/frontend-mobile/)
-- [Frontend Web](/frontend-web/)
-- [System Architecture](/architecture/sad)
-- [AI](/ai/)
-- [Security](/security/)
-- [Integrations](/integrations/)
+## 10. Coverage and Reporting
+
+The Coverage Report calculates requirement coverage, execution coverage, pass rate, automation coverage, blocked cases and open defects.
+
+| Measure                  | Meaning                                                          |
+| ------------------------ | ---------------------------------------------------------------- |
+| Requirement coverage     | Requirements linked to one or more test cases ÷ all requirements |
+| Execution coverage       | Test cases with Pass or Fail results ÷ all test cases            |
+| Pass rate                | Passed cases ÷ executed cases                                    |
+| Automation coverage      | Automated cases ÷ all test cases                                 |
+| Automation of candidates | Automated cases ÷ cases selected for automation                  |
+| Open defects             | Defects that have not reached a closed or rejected status        |
+
+The workbook's current calculated execution count is **0 Pass/Fail results**, so its pass-rate cell should not be interpreted as a measured product failure rate. The workbook is primarily evidence of the team's **test design, traceability and automation plan** at this stage.
+
+The **Lists** sheet defines proposed reporting targets: 100% requirement coverage, 100% execution coverage, 95% pass rate, 60% automation coverage and 80% automation of selected candidates. These are targets for reporting, not achieved test results.
+
+## 11. Test Data and Evidence
+
+Test cases specify the environment, accounts, devices, data and tools required to reproduce each scenario. Testers should use controlled test accounts and avoid exposing real user passwords, OTPs or private information in screenshots and reports.
+
+Useful execution evidence includes:
+
+- Screenshot or screen recording of the relevant UI behaviour.
+- API request and response with secrets removed.
+- Test run or console output for automated checks.
+- Defect reference and steps to reproduce a failure.
+- Date, environment and application version associated with the result.
+
+Evidence should be linked to the appropriate test case or defect so another team member can verify the result.
+

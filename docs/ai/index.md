@@ -1,600 +1,213 @@
 ---
 title: AI and Machine Learning
-description: Afyra's crop-residue image classification architecture, data requirements, inference, evaluation, and limitations.
+description: Afyra maize stalk quality classification, training process, evaluation and integration.
 ---
 
 # AI and Machine Learning
 
 ## 1. Overview
 
-Afyra uses artificial intelligence to support the assessment of agricultural crop residues submitted by farmers.
+Afyra's image-classification work focuses on assessing the visible condition of **dry maize stalks**. The classifier accepts a photograph and predicts one of two labels: **good** or **bad**. This is a visual quality check, not a laboratory test or a guarantee of feed safety.
 
-When a farmer creates a residue listing, the application collects images of the residue. The classification component is intended to help assess residue quality using visual information.
+The implementation documented here comes from the `stalk_classifier_v4.ipynb` training notebook. The model is a fine-tuned **YOLO26n-cls** image classifier, built with Ultralytics. It starts from pretrained weights rather than learning image features from scratch.
 
-Afyra uses a YOLO26n-cls-based image classification approach.
+| Class  | Meaning in the training notebook                               |
+| ------ | -------------------------------------------------------------- |
+| `good` | Dry, healthy-looking brown maize stalk without visible disease |
+| `bad`  | Stalk with visible rot, lesions, breakage or lodging           |
 
-The quality assessment has exactly two categories:
+The model uses **two classes only**. These classification labels should not be confused with a three-level grading system or a separate market-price calculation.
 
-- **Good:** Residue classified as meeting the model's criteria for good quality.
-- **Bad:** Residue classified as meeting the model's criteria for bad quality.
+## 2. Model Architecture
 
-The model does not use intermediate quality categories such as excellent, average, or poor.
+YOLO26n-cls is a lightweight image-classification model. Unlike an object detector, which draws boxes around objects, the classifier produces a label for the image as a whole and a confidence score.
 
-AI classification supports the listing workflow. It should not be treated as a complete physical or laboratory assessment of residue quality.
-
-## 2. Purpose of the AI Component
-
-The AI component is designed to:
-
-1. Analyze uploaded crop-residue images.
-2. Identify visual patterns associated with the supported quality categories.
-3. Return a classification result.
-4. Support consistent quality information in residue listings.
-5. Provide information that can be used alongside the platform's pricing rules.
-
-The AI component does not independently determine the final selling price.
-
-Afyra's pricing functionality uses reference quotations and rule-based adjustments based on factors such as quality and quantity.
-
-## 3. Model Architecture
-
-### Model Type
-
-| Property          | Description                     |
-| ----------------- | ------------------------------- |
-| Model             | YOLO26n-cls                     |
-| Task              | Image classification            |
-| Input             | Crop-residue images             |
-| Output categories | Good and bad                    |
-| Model family      | YOLO classification             |
-| Application       | Crop-residue quality assessment |
-| Integration       | Backend listing workflow        |
-
-YOLO26n-cls is a classification model designed to assign an image to a learned category.
-
-Unlike an object-detection model, an image-classification model predicts a class for an image rather than returning bounding boxes around detected objects.
-
-### Model Processing Flow
+The saved training output identifies the YOLO26n-cls model with **47 layers**, approximately **1.53 million parameters**, and **3.2 GFLOPs** in its fused summary.
 
 ```mermaid
 flowchart TD
-    A["Crop-Residue Image"]
-    B["Image Validation"]
-    C["Image Preprocessing"]
-    D["YOLO26n-cls Model"]
-    E["Classification Output"]
-    F["Good or Bad"]
-    G["Application Response"]
-
-    A --> B
-    B --> C
-    C --> D
-    D --> E
-    E --> F
-    F --> G
+    A[Maize stalk photograph] --> B[Correct orientation and crop image]
+    B --> C[Resize to 320 × 320]
+    C --> D[Convert to grayscale, then RGB]
+    D --> E[YOLO26n-cls classifier]
+    E --> F[Good or bad label]
+    E --> G[Prediction confidence]
 ```
 
-This diagram describes the logical classification process. Exact preprocessing operations, image dimensions, confidence handling, and model-loading code must be confirmed from the implementation.
+The 320 × 320 size describes the notebook's dataset and inference preprocessing. During model training, Ultralytics uses an `imgsz` setting of **224**.
 
-## 4. Image Collection
+## 3. Image Collection and Labelling
 
-The Afyra listing API requires three photographs when creating a crop-residue listing.
+The notebook builds its dataset using two sources:
 
-| Image Field   | Description                                  |
-| ------------- | -------------------------------------------- |
-| `photo_macro` | Close-up image of the residue                |
-| `photo_core`  | Image showing the inside of the pile or bale |
-| `photo_base`  | Image showing the bottom of the pile         |
+1. **Web photographs** gathered through DuckDuckGo image searches in October 2026. Searches cover dry stalks, stalk rot, fallen stalks and related conditions.
+2. **Kaggle Maize Stalk Diseases Dataset**, using images from the `giberella` folder for the bad class. The notebook limits these images to at most one-third of the bad class to reduce dependence on one source.
 
-These images provide different visual views of the residue.
+The initial download output reports **123 successful good-image downloads** and **96 successful bad-image downloads**, while the raw folders subsequently contained **115 good** and **74 bad** images. These are collection-stage counts, not the final training dataset.
 
-### Why Multiple Images Are Collected
+Labels are based on visible appearance. The notebook describes the labels as assigned by the project author; they are not presented as laboratory-confirmed diagnoses.
 
-A single image may not represent the condition of an entire pile or bale.
+### Image cleaning
 
-Different views can reveal visual differences that may not appear in one photograph.
+The preparation pipeline includes:
 
-For example:
+- A first-pass image screen using **CLIP** (`openai/clip-vit-base-patch32`) to separate likely irrelevant search results into `rejected/` folders.
+- Manual review of kept and rejected images, with helpers to delete or restore files.
+- Removal of exact and near-duplicate photographs using image hashes.
+- Cropping the bottom 10% of images to reduce stock-photo watermark bars.
+- Standardizing images to **320 × 320 pixels**.
+- Converting images to **grayscale**, reducing the chance that the model simply learns color differences.
 
-- A close-up can show surface details.
-- A core image can show material inside the pile.
-- A base image can show the material near the bottom.
+The CLIP pass moved **26 of 115 good images** and **14 of 74 bad images** into rejected folders. The Kaggle import output shows **100 giberella images** before the final dataset-building restrictions were applied.
 
-The API confirms that all three photographs are required for listing creation.
+## 4. Dataset and Splitting
 
-However, the API specification alone does not establish whether the model classifies each image separately, combines their predictions, or uses another aggregation method.
+The final dataset contains **165 images**: **87 good** and **78 bad**.
 
-That behavior must be verified in the classification service.
+| Dataset split |   Good |    Bad |   Total |
+| ------------- | -----: | -----: | ------: |
+| Training      |     52 |     51 |     103 |
+| Validation    |     13 |     13 |      26 |
+| Test          |     22 |     14 |      36 |
+| **Total**     | **87** | **78** | **165** |
 
-## 5. Training Data
+Training images teach the model, validation images help assess training, and test images are reserved for evaluation on unseen examples. The notebook keeps Kaggle images out of the test set, so the test split uses web photographs.
 
-Training data is the collection of labeled images used to teach the model to distinguish between good and bad crop residues.
+A separate set of **10 field photographs** is held outside the train, validation and test splits for an additional check.
 
-For a supervised classification model, each training image must have a known target label.
+## 5. Model Training
 
-### Dataset Structure
+The notebook trains a pretrained Ultralytics classification checkpoint on the prepared dataset.
 
-A typical classification dataset may be organized as follows:
+| Setting                           | Value used                                 |
+| --------------------------------- | ------------------------------------------ |
+| Model                             | `yolo26n-cls.pt`                           |
+| Training epochs                   | 30                                         |
+| Training image size               | 224                                        |
+| Batch size                        | 32                                         |
+| Random seed                       | 0                                          |
+| Dataset directory                 | `dataset`                                  |
+| Project/name                      | `runs` / `stalk`                           |
+| Training hardware shown in output | NVIDIA Tesla T4 GPU                        |
+| Best checkpoint                   | `runs/classify/runs/stalk/weights/best.pt` |
 
-```text
-dataset/
-├── train/
-│   ├── good/
-│   └── bad/
-├── val/
-│   ├── good/
-│   └── bad/
-└── test/
-    ├── good/
-    └── bad/
+The code includes a fallback to `yolo11n-cls.pt` if YOLO26n-cls cannot be loaded. The saved run output specifically identifies **YOLO26n-cls** as the model used.
+
+```python
+from ultralytics import YOLO
+
+model = YOLO("yolo26n-cls.pt")
+model.train(
+    data="dataset",
+    epochs=30,
+    imgsz=224,
+    batch=32,
+    seed=0,
+    project="runs",
+    name="stalk",
+    exist_ok=True,
+)
 ```
 
-This is an example of a suitable dataset structure, not a verified representation of Afyra's current training directory.
+The notebook reports a validation top-1 accuracy of approximately **0.962** after training.
 
-### Dataset Documentation Requirements
+## 6. Model Evaluation
 
-The project should record:
+Evaluation uses accuracy, precision, recall, F1-score and confusion matrices. **Recall for the bad class matters especially:** a bad stalk incorrectly predicted as good could be accepted when it should receive further review.
 
-| Item               | Information Required                            |
+### Validation and test results
+
+| Metric            | Validation (26 images) | Test (36 images) |
+| ----------------- | ---------------------: | ---------------: |
+| Accuracy          |                    96% |              92% |
+| Good-class recall |                   100% |             100% |
+| Bad-class recall  |                    92% |              79% |
+| Good-class F1     |                   0.96 |             0.94 |
+| Bad-class F1      |                   0.96 |             0.88 |
+
+The test set contains **33 correct predictions out of 36**. All 22 good images were classified correctly; three of 14 bad images were incorrectly classified as good.
+
+**Test confusion matrix** (rows = actual label; columns = predicted label):
+
+| Actual / predicted | Bad | Good |
+| ------------------ | --: | ---: |
+| Bad                |  11 |    3 |
+| Good               |   0 |   22 |
+
+### Field-photo holdout evaluation
+
+The notebook also evaluates **10 independently held-out field photos**: five good and five bad.
+
+| Metric            | Field-photo result |
+| ----------------- | -----------------: |
+| Overall accuracy  |         70% (7/10) |
+| Good-class recall |         100% (5/5) |
+| Bad-class recall  |          40% (2/5) |
+
+**Field-photo confusion matrix:**
+
+| Actual / predicted | Bad | Good |
+| ------------------ | --: | ---: |
+| Bad                |   2 |    3 |
+| Good               |   0 |    5 |
+
+The field test is substantially harder for the classifier than the web-image test. Three bad stalks were labelled good, some with high confidence. This is important when deciding whether the prediction can be trusted without a human review.
+
+### Background-bias check
+
+The notebook tests whether image backgrounds provide clues about the label. A separate logistic regression classifier is trained using only the left and right edges of the training images.
+
+- Edge-only accuracy: **0.680**
+- Majority-class baseline: **0.505**
+
+Because the edge-only score is higher than the baseline, the images contain some background or scene information related to the class. This is a reason to test with more varied real-world photographs.
+
+## 7. Inference and Model Artifacts
+
+The notebook saves two deployment-oriented files:
+
+| File               | Purpose                                         |
 | ------------------ | ----------------------------------------------- |
-| Dataset source     | Where the images were obtained                  |
-| Dataset size       | Total number of images                          |
-| Class distribution | Number of good and bad images                   |
-| Labeling process   | How image labels were assigned                  |
-| Label verification | How incorrect or uncertain labels were reviewed |
-| Training split     | Images used for model training                  |
-| Validation split   | Images used during model development            |
-| Test split         | Images reserved for final evaluation            |
-| Image preparation  | Resizing, cleaning, and augmentation operations |
-| Dataset version    | Dataset used for each model version             |
+| `stalk_model.pt`   | Copy of the best trained classification weights |
+| `predict_stalk.py` | Preprocessing and prediction helper             |
 
-### Data Quality Considerations
+The helper accepts an image path or PIL image, corrects orientation, crops/resizes to 320 × 320, converts to grayscale and returns a label with confidence.
 
-Training images should represent the conditions in which farmers are expected to use Afyra.
+```python
+{
+    "label": "bad",
+    "confidence": 1.0
+}
+```
 
-Important variations include:
+This example is the notebook's saved test-call output. It is **not** a documented live API response schema.
 
-- Lighting conditions.
-- Camera quality.
-- Viewing angle.
-- Background.
-- Distance from the residue.
-- Crop-residue appearance.
-- Image sharpness.
+The notebook also copies the dataset, holdout images, raw and rejected folders, and prediction artifacts to a Google Drive folder named `stalk_project`.
 
-Poor-quality or incorrectly labeled training images can reduce classification reliability.
+## 8. Integration Considerations
 
-### Current Dataset Evidence
-
-The available documentation identifies the intended model and classification categories, but does not provide verified training image counts, dataset sources, or class distributions.
-
-These values must be added from the actual dataset records.
-
-## 6. Model Training
-
-Model training allows the classification model to learn patterns associated with the two quality categories.
-
-### General Training Process
+The trained model can be called from a backend service that receives a maize stalk image. The integration must use the **same image preprocessing** as the notebook; otherwise, predictions may differ from the evaluated model.
 
 ```mermaid
-flowchart TD
-    A["Collect Images"]
-    B["Review and Label Images"]
-    C["Prepare Dataset"]
-    D["Separate Train, Validation and Test Sets"]
-    E["Configure YOLO26n-cls"]
-    F["Train Model"]
-    G["Evaluate Predictions"]
-    H["Save Model Artifact"]
-
-    A --> B
-    B --> C
-    C --> D
-    D --> E
-    E --> F
-    F --> G
-    G --> H
+flowchart LR
+    A[Farmer supplies a stalk photo] --> B[Backend receives image]
+    B --> C[Image preprocessing]
+    C --> D[Saved classifier weights]
+    D --> E[Good/bad prediction and confidence]
+    E --> F[Application quality-review workflow]
 ```
 
-### Training Configuration
-
-The following information should be documented from the actual training configuration:
-
-| Parameter       | Description                            | Verified Value |
-| --------------- | -------------------------------------- | -------------- |
-| Model weights   | Initial checkpoint used for training   | Not supplied   |
-| Image size      | Input resolution used during training  | Not supplied   |
-| Epochs          | Number of training passes              | Not supplied   |
-| Batch size      | Images processed per training batch    | Not supplied   |
-| Learning rate   | Training optimization setting          | Not supplied   |
-| Optimizer       | Algorithm used to update model weights | Not supplied   |
-| Training device | CPU or GPU environment                 | Not supplied   |
-| Random seed     | Value used for reproducibility         | Not supplied   |
-| Model artifact  | Saved trained checkpoint               | Not supplied   |
-
-The documentation should not claim that a specific training configuration was used without the corresponding training script, configuration, or logs.
-
-## 7. Model Evaluation
-
-Model evaluation measures how well the classifier predicts quality categories on images that were not used for training.
-
-Evaluation should use a separate labeled test dataset.
-
-### Evaluation Metrics
-
-| Metric           | What It Measures                                                 |
-| ---------------- | ---------------------------------------------------------------- |
-| Accuracy         | Percentage of images classified correctly                        |
-| Precision        | How often predictions of a category are correct                  |
-| Recall           | How many images belonging to a category are identified correctly |
-| F1-score         | Balance between precision and recall                             |
-| Confusion matrix | Counts of correct and incorrect predictions for each category    |
-
-### Confusion Matrix
-
-For a binary good/bad classifier, the confusion matrix can be represented as:
-
-| Actual / Predicted | Good                        | Bad                        |
-| ------------------ | --------------------------- | -------------------------- |
-| Good               | Correctly classified good   | Incorrectly classified bad |
-| Bad                | Incorrectly classified good | Correctly classified bad   |
-
-This helps identify whether the model makes more errors in one category than the other.
-
-### Evaluation Record
-
-| Field                 | Result       |
-| --------------------- | ------------ |
-| Model version         | Not supplied |
-| Evaluation date       | Not supplied |
-| Number of test images | Not supplied |
-| Accuracy              | Not supplied |
-| Precision             | Not supplied |
-| Recall                | Not supplied |
-| F1-score              | Not supplied |
-| Confusion matrix      | Not supplied |
-
-No model performance percentage is reported because verified evaluation results have not been provided.
-
-### Why Accuracy Alone Is Not Enough
-
-Suppose the test dataset contains many good images and very few bad images.
-
-A model could achieve high overall accuracy while performing poorly on bad-quality residue.
-
-For this reason, evaluation should include per-class precision and recall, not only accuracy.
-
-## 8. AI Integration With the Backend
-
-The crop-residue classification component is associated with the listing workflow.
-
-### Relevant API
-
-```http
-POST /residue_listings
-```
-
-The endpoint accepts multipart form data.
-
-Required fields include:
-
-```text
-farm_id
-residue_type_id
-weight_kg
-available_from
-available_until
-photo_macro
-photo_core
-photo_base
-```
-
-### Listing Response
-
-The API's listing response schema includes fields such as:
-
-```text
-quality_grade
-status
-photos
-price_per_kg_applied
-total_payout_kes
-```
-
-Each photo record may include:
-
-```text
-photo_id
-angle
-quality_grade
-screening_confidence
-url
-```
-
-The `quality_grade` and `screening_confidence` fields can be null.
-
-This is important because the frontend must not assume that every uploaded image has an available classification result.
-
-### Integration Diagram
-
-```mermaid
-flowchart TD
-    A["Farmer"]
-    B["Listing Form"]
-    C["FastAPI Listing Endpoint"]
-    D["Image and Request Validation"]
-    E["Classification Service"]
-    F["YOLO26n-cls"]
-    G["Listing Processing"]
-    H[("PostgreSQL")]
-    I["Image Storage"]
-    J["API Response"]
-
-    A --> B
-    B --> C
-    C --> D
-    D --> E
-    E --> F
-    F --> E
-    E --> G
-    G --> H
-    G --> I
-    G --> J
-    J --> B
-```
-
-This is a conceptual integration diagram. The exact order of classification, image storage, and database writes must be confirmed from the backend source.
-
-## 9. Prediction Handling
-
-A classification result should be handled carefully by both the backend and frontend.
-
-### Successful Classification
-
-When the model successfully classifies an image, the application can use the returned quality category and any supported confidence information.
-
-### Unavailable Classification
-
-A classification may be unavailable because:
-
-- The uploaded file is invalid.
-- The image cannot be processed.
-- The model artifact is unavailable.
-- Inference fails.
-- The service returns no usable prediction.
-
-The frontend should display the appropriate state returned by the backend.
-
-It should not automatically assign good quality when classification is missing.
-
-### Confidence Scores
-
-The API includes a `screening_confidence` field in the photo response.
-
-A confidence score describes the model's reported confidence in its prediction.
-
-It is not the same as a verified probability that the residue is physically safe or suitable for manufacturing.
-
-The current API specification does not define a confidence threshold for accepting or rejecting predictions.
-
-Any threshold used by the application must be documented from the actual inference code.
-
-## 10. Misclassification Handling
-
-A misclassification occurs when the model predicts a category different from the correct label.
-
-For example, residue labeled as bad in a verified evaluation dataset might be predicted as good.
-
-### Recommended Investigation Process
-
-1. Identify the image associated with the incorrect prediction.
-2. Record the expected quality category.
-3. Record the predicted quality category.
-4. Record the confidence score, if available.
-5. Check image clarity and lighting.
-6. Review whether the original label is correct.
-7. Determine whether similar errors occur in other images.
-8. Document the finding.
-9. Correct the dataset, model, or application logic where appropriate.
-10. Re-evaluate the affected behavior.
-
-### Misclassification Record
-
-| Field              | Description                              |
-| ------------------ | ---------------------------------------- |
-| Image reference    | Identifier or location of the test image |
-| Expected category  | Good or bad                              |
-| Predicted category | Good or bad                              |
-| Confidence         | Model confidence, if available           |
-| Model version      | Checkpoint used                          |
-| Error description  | What went wrong                          |
-| Investigation      | Possible cause                           |
-| Resolution         | Action taken                             |
-| Retest result      | Result after correction                  |
-
-### User-Facing Handling
-
-The application should avoid presenting a model prediction as a guaranteed quality certification.
-
-If manual correction, review, or retry functionality exists, it should be documented using the implemented workflow.
-
-The available API specification does not confirm a dedicated manual override endpoint.
-
-## 11. Relationship Between AI and Pricing
-
-Afyra's AI and pricing components have different responsibilities.
-
-| Component               | Responsibility                                            |
-| ----------------------- | --------------------------------------------------------- |
-| AI classifier           | Supports image-based quality classification               |
-| Pricing service         | Calculates a reference-based price estimate               |
-| Residue listing service | Manages submitted residue information and listing records |
-
-The pricing endpoint is:
-
-```http
-GET /prices/estimate
-```
-
-It accepts:
-
-- `residue_type_id`
-- `county`
-- `weight_kg`
-- `grade`
-
-The `grade` parameter accepts:
-
-```text
-GOOD
-POOR
-```
-
-The estimate response uses:
-
-```text
-good
-bad
-```
-
-The pricing response includes the estimated minimum and maximum prices, source, and calculation method.
-
-### Conceptual Flow
-
-```mermaid
-flowchart TD
-    A["Residue Images"]
-    B["Quality Classification"]
-    C["Good / Bad Quality"]
-    D["Residue Type and Quantity"]
-    E["Reference Pricing Data"]
-    F["Rule-Based Pricing Service"]
-    G["Estimated Price Range"]
-
-    A --> B
-    B --> C
-    C --> F
-    D --> F
-    E --> F
-    F --> G
-```
-
-This illustrates how quality information can contribute to pricing. The exact connection between listing classification output and the pricing service must be confirmed from the implementation.
-
-The model itself does not predict the final market price.
-
-## 12. Model Limitations
-
-Image classification has limitations that must be understood before using predictions in important decisions.
-
-### Visual Information Only
-
-A photograph cannot directly measure every physical or chemical property of crop residue.
-
-The model should not be presented as a replacement for laboratory testing or expert inspection.
-
-### Image Quality
-
-Blurred, dark, overexposed, or poorly framed images can reduce classification reliability.
-
-### Dataset Coverage
-
-The model may perform differently on residue types, locations, or conditions that are not adequately represented in its training data.
-
-### Incorrect Predictions
-
-A model can produce an incorrect prediction even when it reports high confidence.
-
-### Environmental Conditions
-
-Lighting, moisture appearance, dust, shadows, and background objects may affect the visual information available to the classifier.
-
-### Model Version Changes
-
-Retraining or replacing the model can change its predictions.
-
-Each deployed model should therefore have a documented version and evaluation record.
-
-## 13. Model Monitoring and Maintenance
-
-After deployment, the team should monitor the classification component for failures and changes in performance.
-
-Useful monitoring information includes:
-
-- Number of inference requests.
-- Number of successful predictions.
-- Number of failed predictions.
-- Frequency of unavailable results.
-- Prediction distribution between good and bad.
-- Repeated misclassification reports.
-- Model version used.
-- Inference response time.
-
-These are recommended monitoring indicators. Their actual collection must be verified in the deployed system.
-
-### Model Update Process
-
-When a new model version is prepared:
-
-1. Review the updated training dataset.
-2. Train or fine-tune the model.
-3. Evaluate it on a separate test dataset.
-4. Compare results with the previous model.
-5. Review important misclassifications.
-6. Verify backend compatibility.
-7. Test the listing workflow.
-8. Record the model version and evaluation results.
-9. Deploy only after the required checks are complete.
-
-## 14. AI Testing Checklist
-
-- [ ] Confirm the correct model artifact is loaded.
-- [ ] Confirm supported image formats.
-- [ ] Test valid good-quality images.
-- [ ] Test valid bad-quality images.
-- [ ] Test corrupted images.
-- [ ] Test unsupported file formats.
-- [ ] Test unclear or low-quality images.
-- [ ] Verify prediction output structure.
-- [ ] Verify confidence handling.
-- [ ] Verify behavior when inference fails.
-- [ ] Verify backend listing integration.
-- [ ] Record evaluation metrics.
-- [ ] Review misclassification examples.
-- [ ] Verify that missing predictions are not replaced with fabricated results.
-
-Checklist items should only be marked complete after actual execution.
-
-## 15. Documentation Evidence and Open Items
-
-The following information must be verified from the model training files and backend implementation before the AI documentation can be considered complete.
-
-| Area             | Missing Evidence                                            |
-| ---------------- | ----------------------------------------------------------- |
-| Dataset          | Source, size, class counts, and labeling process            |
-| Training         | Training script, configuration, and logs                    |
-| Model artifact   | Actual checkpoint name and version                          |
-| Evaluation       | Accuracy, precision, recall, F1-score, and confusion matrix |
-| Preprocessing    | Exact image transformations                                 |
-| Inference        | Exact prediction and multi-image handling logic             |
-| Confidence       | Thresholds and decision rules, if implemented               |
-| Deployment       | Model-loading location and runtime configuration            |
-| Failure handling | Implemented fallback, retry, or rejection behavior          |
-| Monitoring       | Actual logs, metrics, and model-update process              |
-
-These are documentation gaps, not confirmed implementation failures.
-
-## 16. Related Documentation
-
-- [System Architecture](/architecture/sad)
-- [API Documentation](/backend/api-documentation)
-- [Backend Overview](/backend/)
-- [Frontend Mobile](/frontend-mobile/)
-- [Developer Guide](/developer-guide/)
-- [Testing and QA](/qa/)
-- [Security](/security/)
-- [Integrations](/integrations/)
-
-## 17. References
-
-- YOLO classification model documentation
+This diagram describes the intended connection between the saved model and the application. The notebook verifies the local prediction helper, but it does not itself demonstrate a deployed Afyra endpoint or an end-to-end mobile-to-backend request.
+
+A prediction should be treated as **decision support**, particularly when the model labels a stalk good. Quality classification and price estimation are separate responsibilities.
+
+
+>**Note: AI-Assisted Pre-Screening**
+>
+> Afyra's AI model helps manufacturers assess the potential quality of crop residues before placing sourcing orders. It analyzes uploaded images and provides an initial prediction using the **Good** and **Bad** quality categories.
+>
+> These predictions are intended to support early screening, not to provide a definitive judgment of residue quality. Actual quality may depend on factors that cannot be reliably determined from an image alone.
+>
+> By providing this initial assessment, Afyra helps manufacturers identify potentially suitable residues, make more informed sourcing decisions, and reduce the need to physically inspect every available listing before deciding which ones to pursue.
+>
+> **The final decision on residue quality and whether to proceed with an order remains with the manufacturer.**
