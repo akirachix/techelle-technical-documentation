@@ -600,3 +600,57 @@ Before submitting a pull request, make sure:
 - [Testing and QA](/qa/)
 - [Code Standards](/code-standards/)
 
+## 17. Development Environment Verification
+
+### Purpose
+
+This section explains how developers can confirm that Afyra's setup instructions work with the actual source-code repositories.
+
+The platform has separate backend, web, mobile, and documentation projects. Each project must be verified using its own dependency files and configuration.
+
+### Verification checklist
+
+| Component       | What to verify                                  | Evidence required              |
+| --------------- | ----------------------------------------------- | ------------------------------ |
+| Backend         | Dependencies install successfully               | Installation output            |
+| Database        | PostgreSQL connection and migrations work       | Migration output               |
+| Backend API     | FastAPI starts and exposes the expected routes  | API startup and OpenAPI output |
+| Flutter mobile  | Dependencies resolve and the application builds | Flutter build or run output    |
+| Web frontend    | Dependencies install and the application builds | Next.js build output           |
+| Authentication  | Login and protected requests work               | Test results                   |
+| Integrations    | Required configuration is documented            | Configuration checklist        |
+| Automated tests | Existing test suites run successfully           | Test reports                   |
+
+### Verification procedure
+
+For each repository:
+
+1. Check out the intended branch or commit.
+2. Read the repository's dependency and configuration files.
+3. Install dependencies using the project's documented package manager.
+4. Configure the required environment variables.
+5. Start the application using the documented commands.
+6. Run the available automated tests.
+7. Record errors and their resolutions.
+8. Update outdated setup instructions.
+
+Do not mark a component as verified until these steps have been completed.
+
+### Configuration and secrets
+
+Development instructions must identify required environment-variable names without exposing real credentials.
+
+Use placeholder values in examples. Do not commit passwords, API tokens, database credentials, or private service keys.
+
+### Verification record
+
+| Component      | Source revision | Setup result | Test result  | Verified by | Date |
+| -------------- | --------------- | ------------ | ------------ | ----------- | ---- |
+| Backend        | Pending         | Not verified | Not verified | —           | —    |
+| Flutter mobile | Pending         | Not verified | Not verified | —           | —    |
+| Web frontend   | Pending         | Not verified | Not verified | —           | —    |
+| Documentation  | Pending         | Not verified | Not verified | —           | —    |
+
+Update this table when verification is completed.
+
+A successful setup on one developer's machine does not establish that the instructions work on a clean environment.

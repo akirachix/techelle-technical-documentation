@@ -211,3 +211,54 @@ A prediction should be treated as **decision support**, particularly when the mo
 > By providing this initial assessment, Afyra helps manufacturers identify potentially suitable residues, make more informed sourcing decisions, and reduce the need to physically inspect every available listing before deciding which ones to pursue.
 >
 > **The final decision on residue quality and whether to proceed with an order remains with the manufacturer.**
+
+
+## 9. Model Evidence and Reproducibility
+
+### Source of the documented results
+
+The model training and evaluation described in this document are based on the `stalk_classifier_v4.ipynb` notebook.
+
+The notebook is the primary source for the reported dataset sizes, preprocessing steps, training configuration, evaluation metrics, confusion matrices, and field-photo results.
+
+These results describe an experimental model evaluation. They should not be interpreted as evidence of production accuracy or successful deployment.
+
+### Model artifacts
+
+The training workflow identifies the following artifacts:
+
+| Artifact | Purpose | Verification status |
+|---|---|---|
+| `stalk_classifier.ipynb` | Training and evaluation notebook | Referenced; not included in this documentation repository |
+| `stalk_model.pt` | Trained classification model | Referenced; not included |
+| `predict_stalk.py` | Image preprocessing and prediction helper | Referenced; not included |
+| `runs/classify/runs/stalk/weights/best.pt` | Best training checkpoint | Referenced; not included |
+| `stalk_project` | Google Drive output folder described in the notebook | Access and contents not independently verified |
+
+These artifact names are taken from the documented training workflow. Their presence and contents must be checked against the original model-development files before final technical sign-off.
+
+### Reproducing the evaluation
+
+To independently verify the reported results, a reviewer needs:
+
+1. The original training notebook and dependency versions.
+2. The exact training, validation, and test image splits.
+3. The saved model checkpoint used for evaluation.
+4. The independently held-out field photographs.
+5. The evaluation outputs, including confusion matrices and class-level metrics.
+
+The reported test accuracy of approximately 92% comes from 33 correct predictions among 36 test images.
+
+The separate field-photo evaluation reports 7 correct predictions among 10 photographs.
+
+These results should be reported separately because they use different evaluation datasets.
+
+### Known limitations
+
+- The training dataset contains only 165 images.
+- The model classifies visible appearance, not nutritional quality or laboratory-confirmed disease.
+- Three bad field photographs were incorrectly classified as good.
+- Background information may influence predictions.
+- The field-photo evaluation contains only 10 images.
+- The notebook does not establish that the classifier is deployed through a working Afyra API endpoint.
+
